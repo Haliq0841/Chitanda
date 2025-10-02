@@ -1,0 +1,17 @@
+{
+    "name": "chitanda",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "start": "node index.js",
+        "test": "echo \"No tests specified\" && exit 0"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "baileys": "^7.0.0-rc.4"
+    }
+}
