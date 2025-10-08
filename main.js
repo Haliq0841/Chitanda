@@ -148,7 +148,7 @@ async function connectWA() {
             keys: baileys.makeCacheableSignalKeyStore(state.keys, logger)
         },
         mobile: false,
-        printQRInTerminal: true,
+//        printQRInTerminal: true,
         browser: baileys.Browsers.ubuntu("Chrome"),
         markOnlineOnConnect: true,
         generateHighQualityLinkPreview: true,
