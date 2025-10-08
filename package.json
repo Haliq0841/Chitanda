@@ -12,6 +12,8 @@
     "author": "",
     "license": "MIT",
     "dependencies": {
-        "baileys": "^7.0.0-rc.4"
+        "api-translator": "^1.1.0",
+        "baileys": "^7.0.0-rc.4",
+        "lowdb": "^7.0.1"
     }
 }
