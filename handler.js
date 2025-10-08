@@ -67,7 +67,6 @@ export default class CommandHandler {
     }
 
     async execute(m, sock, db, func, color, util, messages) {
-        m.plugin = undefined
         try {
             if (this.executedCommands.has(m.id)) return false
             this.executedCommands.add(m.id)
