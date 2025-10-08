@@ -67,6 +67,7 @@ export default class CommandHandler {
     }
 
     async execute(m, sock, db, func, color, util, messages) {
+        m.plugin = undefined
         try {
             if (this.executedCommands.has(m.id)) return false
             this.executedCommands.add(m.id)
@@ -224,48 +225,41 @@ export default class CommandHandler {
                 }
                 if (m.exp)
                     db.data.users[m.sender].exp += m.exp * 1
-                db.data.stats ? db.data.stats = db.data.stats : db.data.stats = {}
-                let stats = db.data.stats
-                let stat
-                if (m.plugin) {
-                let now = +new Date
-                if (m.plugin in stats) {
-                    stat = stats[m.plugin]
-                    if (!isNumber(stat.total))
-                        stat.total = 1
-                    if (!isNumber(stat.success))
-                        stat.success = m.error != null ? 0 : 1
-                    if (!isNumber(stat.last))
-                        stat.last = now
-                    if (!isNumber(stat.lastSuccess))
-                        stat.lastSuccess = m.error != null ? 0 : now
-                } else
-                    stat = stats[m.plugin] = {
-                        total: 1,
-                        success: m.error != null ? 0 : 1,
-                        last: now,
-                        lastSuccess: m.error != null ? 0 : now
-                    }
-                stat.total += 1
-                stat.last = now                
-                if (m.error == null) {
-                    stat.success += 1
-                    stat.lastSuccess = now
-                }
             }
-            db.write()
-            }
-            /*
-            if (prefixMatched) {
-                return await this.handleCommand(text, prefixMatched, m, sock, db, func, color, util, usr)
-            }
-
-            return await this.handleNoPrefixCommand(text, m, sock, db, func, color, util)
-            */
         } catch (error) {
             console.error("[ERROR] Error in execute method:", error)
-            return false
+        } finally {
+            db.data.stats ? db.data.stats = db.data.stats : db.data.stats = {}
+            let stats = db.data.stats
+            let stat
+            if (m.plugin) {
+            let now = +new Date
+            if (m.plugin in stats) {
+                stat = stats[m.plugin]
+                if (!isNumber(stat.total))
+                    stat.total = 1
+                if (!isNumber(stat.success))
+                    stat.success = m.error != null ? 0 : 1
+                if (!isNumber(stat.last))
+                    stat.last = now
+                if (!isNumber(stat.lastSuccess))
+                    stat.lastSuccess = m.error != null ? 0 : now
+            } else
+                stat = stats[m.plugin] = {
+                    total: 1,
+                    success: m.error != null ? 0 : 1,
+                    last: now,
+                    lastSuccess: m.error != null ? 0 : now
+                }
+            stat.total += 1
+            stat.last = now                
+            if (m.error == null) {
+                stat.success += 1
+                stat.lastSuccess = now
+                }
+            }
         }
+        db.write()
     }
 /*
     async handleCommand(text, prefix, m, sock, db, func, color, util, usr) {
