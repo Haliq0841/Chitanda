@@ -264,9 +264,9 @@ async function connectWA() {
     sock.ev.on("contacts.update", update => {
         for (const contact of update) {
             const id = baileys.jidNormalizedUser(contact.id)
-            if (db.contacts) {
-                db.contacts[id] = {
-                    ...(db.contacts[id] || {}),
+            if (db.data.contacts) {
+                db.data.contacts[id] = {
+                    ...(db.data.contacts[id] || {}),
                     ...(contact || {})
                 }
             }
@@ -276,8 +276,8 @@ async function connectWA() {
     sock.ev.on("contacts.upsert", update => {
         for (const contact of update) {
             const id = baileys.jidNormalizedUser(contact.id)
-            if (db.contacts) {
-                db.contacts[id] = { ...(contact || {}), isContact: true }
+            if (db.data.contacts) {
+                db.data.contacts[id] = { ...(contact || {}), isContact: true }
             }
         }
     })
@@ -285,10 +285,10 @@ async function connectWA() {
     sock.ev.on("groups.update", updates => {
         for (const update of updates) {
             const id = update.id
-            if (db.groupMetadata[id]) {
+            if (db.data.groupMetadata[id]) {
                 console.log(color.green('[+] Group Metadata Updated!!'))
-                db.groupMetadata[id] = {
-                    ...(db.groupMetadata[id] || {}),
+                db.data.groupMetadata[id] = {
+                    ...(db.data.groupMetadata[id] || {}),
                     ...(update || {})
                 }
             }
@@ -296,7 +296,7 @@ async function connectWA() {
     })
 
     sock.ev.on("group-participants.update", ({ id, participants, action }) => {
-        const metadata = db.groupMetadata[id]
+        const metadata = db.data.groupMetadata[id]
         if (metadata) {
             switch (action) {
                 case "add":
@@ -329,9 +329,11 @@ async function connectWA() {
     })
 
     // interval save db
+    /*
     setInterval(async () => {
         await db.write(db)
     }, 3000)
+    */
 }
 
 connectWA()
