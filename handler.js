@@ -7,6 +7,7 @@ const isNumber = x => typeof x === 'number' && !isNaN(x)
 
 /* module internal */
 import color from './lib/color.js'
+import { text } from "stream/consumers"
 
 export default class CommandHandler {
     constructor() {
@@ -105,7 +106,6 @@ export default class CommandHandler {
                 let fail = plugin.fail || this.dfail
                 m.limit = false
                 m.exp = 0
-                m.plugin = pluginName
                 if (typeof plugin.all === 'function') {
                     try {
                         await plugin.all.call(sock, m, { conn: sock, chatUpdate: messages, db, func, color, util })
@@ -123,8 +123,9 @@ export default class CommandHandler {
                         chatUpdate: messages,
                     })) continue
                 }
-
-                const usedPrefix = this.prefixes.find(p => text.startsWith(p))
+                let _prefix = plugin.customPrefix || this.prefixes
+                const usedPrefix = _prefix.find(p => text.startsWith(p))
+                if (!usedPrefix && !plugin.noPrefix && !db.data.setting.noPrefix) continue
                 let noPrefix = text.replace(usedPrefix, '')
                 let [command, ...args] = noPrefix.trim().split` `.filter(v => v)
                 args = args || []
@@ -197,12 +198,15 @@ export default class CommandHandler {
                     command,
                     text: textMessage,
                     usedPrefix,
+                    noPrefix,
+                    groupMetadata: db.data.groupMetadata[m.from],
                     isPrems,
                     isOwner: m.isOwner,
                     isAdmin: m.isAdmin,
                     isBotAdmin: m.isBotAdmin,
                 }
                 try {
+                    m.plugin = pluginName
                     await plugin.call(sock, m, extra)
                     if (!isPrems)
                         m.limit = m.limit || plugin.limit || false
@@ -259,6 +263,11 @@ export default class CommandHandler {
             }
         }
         db.write()
+        let print = `💎 ${color.bgYellow(color.whiteBright(m.type))}\n📪 ${color.bgMagenta(color.yellow(m.sender))}\n📤 ${color.bgGreen(m.pushName)} \n💬 ${color.bgRed(color.whiteBright(m.body.trim()))}\n`
+        if (m.isGroup) print += `👥 ${color.bgBlue(color.whiteBright(db.data.groupMetadata[m.from].subject))}\n`
+        if (m.plugin) print += `🔖 ${color.bgCyan(color.whiteBright(m.plugin))}\n`
+        
+        console.log(print)
     }
 /*
     async handleCommand(text, prefix, m, sock, db, func, color, util, usr) {

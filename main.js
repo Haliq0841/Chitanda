@@ -30,6 +30,7 @@ const defaultData = {
     setting: {
         number: null,
         owner: setting.owner,
+        noPrefix: setting.noPrefix,
     },
     contacts: {},
     groupMetadata: {}
