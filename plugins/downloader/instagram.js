@@ -23,8 +23,12 @@ let handler = async (m, { conn, text, args, usedPrefix, command }) => {
         let res = await axios(options)
         if (!res.data.success) throw res.data
         await conn.sendMessage(m.from, {text: `Mengirim...`, edit: key })
+        let count = 0
+        let sepertiga = Math.ceil(res.data.data.length / 3);
         for (let data of res.data.data) {
+            if (count >= sepertiga) break
             await conn.sendMedia(m.from, data.url, m)
+            count++
         }
         } catch (e) {
         await conn.sendMessage(m.from, {text: `Gagal`, edit: key })
