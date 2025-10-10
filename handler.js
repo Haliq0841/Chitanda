@@ -212,6 +212,7 @@ export default class CommandHandler {
                         m.limit = m.limit || plugin.limit || false
                 } catch (error) {
                     m.error = error
+                    m.reply(util.format(error))
                     console.error(`[ERROR] Error in plugin command method (${pluginName}):`, error)
                 } finally {
                     if (typeof plugin.after === 'function') {
