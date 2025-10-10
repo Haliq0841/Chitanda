@@ -5,11 +5,9 @@ let handler = async (m, {
     usedPrefix,
     command
 }) => {
-    conn.hdr = conn.hdr ? conn.hdr : {};
+    ///conn.hdr = conn.hdr ? conn.hdr : {};
     const sender = m.sender.split(`@`)[0];
 
-    if (m.sender in conn.hdr)
-        throw "Masih Ada Proses Yang Belum Selesai Kak, Silahkan Tunggu Sampai Selesai Yah >//<";
 
     let q = m.quoted ? m.quoted : m;
     let mime = (q.msg || q).mimetype || q.mediaType || "";
@@ -19,8 +17,6 @@ let handler = async (m, {
 
     if (!/image\/(jpe?g|png)/.test(mime))
         throw `Mime ${mime} tidak support`;
-    else conn.hdr[m.sender] = true;
-
     m.reply("Proses Kak...\nGambar sedang di download");
 
     let img = await q.download?.();
@@ -29,17 +25,13 @@ let handler = async (m, {
 
     let error;
 
-    try {
-        const This = await processing(img, "enhance");
-        await conn.sendMedia(m.from, This, m)
-    } catch (er) {
-        error = true;
-    } finally {
-        if (error) {
-            m.reply("Proses Gagal :(" + error);
+        try {
+            const This = await processing(img, "enhance");
+            await conn.sendMedia(m.from, This, m)
+        } catch (e) {
+            m.reply(e)
         }
-        delete conn.hdr[m.sender];
-    }
+        
 };
 
 handler.help = ['remini', 'hd2', 'jernih2'];
