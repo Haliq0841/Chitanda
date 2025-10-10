@@ -21,7 +21,7 @@ let handler = async (m, { conn, text, args, usedPrefix, command }) => {
          }
         }
         let res = await axios(options)
-        if (res.data.data?.status !== 'success') throw res.data
+        if (!res.data.success) throw res.data
         await conn.sendMessage(m.from, {text: `Mengirim video...`, edit: key })
         await conn.sendMedia(m.from, res.data.data[0].url, m, {caption: `Ini kak videonya`})
         } catch (e) {
