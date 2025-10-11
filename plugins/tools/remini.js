@@ -73,11 +73,10 @@ async function processing(urlPath, method) {
             function(err, res) {
                 if (err) reject(err);
                 let data = [];
-                res
-                    .on("data", function(chunk) {
+                res.on("data", function(chunk) {
                         data.push(chunk);
                     })
-                    .on("end", () => {
+                res.on("end", () => {
                         resolve(Buffer.concat(data));
                     });
                 res.on("error", (e) => {
