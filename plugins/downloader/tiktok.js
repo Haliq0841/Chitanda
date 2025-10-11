@@ -24,7 +24,7 @@ var handler = async (m, { conn, args, text, usedPrefix, command }) => {
                     url: res.result.music.playUrl[0]
                 }, 
                 mimetype: 'audio/mp4', fileName: `${res.result.music.title}`, contextInfo: { externalAdReply: {
-                    mediaType: 1,
+                    mediaType: 'VIDEO',
                     title: res.result.music.title.replace("original sound", "suara asli"),
                     body: res.result.music.author,
                     sourceUrl: 'https://m.youtube.com/results?sp=mAEA&search_query=' + res.result.music.title.replace("original sound", "suara asli"),
