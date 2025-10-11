@@ -28,7 +28,8 @@ var handler = async (m, { conn, args, text, usedPrefix, command }) => {
                     title: res.result.music.title.replace("original sound", "suara asli"),
                     body: res.result.music.author,
                     sourceUrl: 'https://m.youtube.com/results?sp=mAEA&search_query=' + res.result.music.title.replace("original sound", "suara asli"),
-                    thumbnailUrl: res.result.music.coverLarge[0],
+                    //thumbnailUrl: res.result.music.coverLarge[0],
+                    thumbnail: new Uint8Array(await (await fetch(res.result.music.coverLarge[0])).buffer()),
                     renderLargerThumbnail: true
                 }}
             }, { quoted: m })
