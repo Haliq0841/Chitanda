@@ -197,7 +197,7 @@ async function connectWA() {
                     break
                 case 428:
                     console.log(color.cyan('[+] Connection closed, restarting...'))
-                    //await connectWA()
+                    await connectWA()
                     break
                 case 515:
                     console.log(color.cyan('[+] Need to restart, restarting...'))
