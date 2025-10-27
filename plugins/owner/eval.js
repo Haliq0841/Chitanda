@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(__dirname)
 
 let handler = async (m, _2) => {
-  let { conn, usedPrefix, noPrefix, args, groupMetadata, db, func } = _2
+  let { conn, usedPrefix, noPrefix, args, groupMetadata, db, func, thisClass } = _2
   let _return
   let _syntax = ''
   let _text = (/^=>/.test(usedPrefix) ? 'return ' : '') + noPrefix
@@ -18,12 +18,12 @@ let handler = async (m, _2) => {
     let f = {
       exports: {}
     }
-    let exec = new (async () => { }).constructor('print', 'm', 'func', 'db','handler', 'require', 'conn', 'Array', 'process', 'args', 'groupMetadata', 'module', 'exports', 'argument', _text)
+    let exec = new (async () => { }).constructor('print', 'm', 'func', 'db','handler', 'require', 'conn', 'Array', 'process', 'args', 'groupMetadata', 'module', 'exports', 'argument', 'thisClass', _text)
     _return = await exec.call(conn, (...args) => {
       if (--i < 1) return
       console.log(...args)
       return conn.reply(m.chat, format(...args), m)
-    }, m, func, db, handler, require, conn, CustomArray, process, args, groupMetadata, f, f.exports, [conn, _2])
+    }, m, func, db, handler, require, conn, CustomArray, process, args, groupMetadata, f, f.exports, _2, thisClass)
   } catch (e) {
     let err = syntaxerror(_text, 'Execution Function', {
       allowReturnOutsideFunction: true,

@@ -194,6 +194,7 @@ export default class CommandHandler {
                     func,
                     color,
                     util,
+                    thisClass: this,
                     chatUpdate: messages,
                     command,
                     text: textMessage,

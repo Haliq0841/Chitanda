@@ -6,6 +6,7 @@ import * as baileys from "baileys"
 import readline from "readline"
 import path from "path"
 import axios from "axios"
+import QRCode from 'qrcode'
 import util from "util"
 import { pathToFileURL } from "url"
 import { createRequire } from "module"
@@ -163,7 +164,7 @@ async function connectWA() {
         },
     })
 
-    if (!sock.authState.creds.registered) {
+    if (!sock.authState.creds.registered && setting.usePairingCode) {
         setTimeout(async () => {
             const code = (await sock.requestPairingCode(phone))
                 ?.match(/.{1,4}/g)
@@ -173,8 +174,10 @@ async function connectWA() {
     }
 
     sock.ev.on("connection.update", async update => {
-        const { lastDisconnect, connection, receivedPendingNotifications } = update
-
+        const { lastDisconnect, connection, receivedPendingNotifications, qr } = update
+        if (qr && !setting.usePairingCode) {
+            console.log(await QRCode.toString(qr, {type:'terminal'}))
+        }
         if (receivedPendingNotifications && !sock.authState.creds?.myAppStateKeyId) {
             sock.ev.flush()
         }
