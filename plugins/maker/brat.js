@@ -13,7 +13,7 @@ let handler = async (m, {
     isOwner,
     isPrems
 }) => {
-    if (!text) throw `Example:\n${usedPrefix + command} Hello World`;
+    if (!args[0]) throw `Example:\n${usedPrefix + command} Hello World`;
     switch (command.toLowerCase()) {
         case 'brat':
         case 'bratext':
@@ -23,7 +23,7 @@ let handler = async (m, {
                 let encmedia = await conn.sendImageAsSticker(m.from, buffer, m, { packname: m.pushName, author: db.data.setting.packname })
                 await fs.unlinkSync(encmedia)
             }
-            break;
+            break; 
         case 'bratvideo':
         case 'bratvid':
             {
@@ -39,9 +39,9 @@ let handler = async (m, {
 
 handler.help = ['brat', 'bratvideo'].map(v => v + ' <teks>');
 handler.tags = ['maker'];
-handler.command = /^(bratt?(text)?|bratvid(eo)?)$/i;
-handler.register = false;
-handler.disable = false;
+handler.command = /^(brat)$/i;
+
+export default handler;
 
 async function BratGenerator(teks) {
   const width = 1024;

@@ -36,11 +36,14 @@ export default class CommandHandler {
                 module = require(filePath)
             } else if (ext === '.js' || ext === '.mjs') {
                 const fileUrl = pathToFileURL(filePath).href + `?${Date.now()}`
-                module = await import(fileUrl)
+                module = await import(fileUrl).catch(err => {
+                    console.error("[ERROR] Failed to import module:", err)
+                    return null
+                })
             } else {
                 return false
             }
-    
+            if (!module) return false
             const commandFunction = module.default || module
             if (typeof commandFunction === 'function') {
                 this.plugins[namePlugin] = commandFunction

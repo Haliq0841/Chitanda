@@ -1,6 +1,4 @@
-let handler = async (m, { conn, usedPrefix, command, args, isOwner, isPrems, groupMetadata, chatUpdate, messages }) => {
-    m.reply(`${usedPrefix + command} berhasil`)
-}
-handler.command = /^(tes)$/i
+import url from 'url'
+import { dirname } from 'path'
 
-export default handler
+console.log(import.meta.dirname)
