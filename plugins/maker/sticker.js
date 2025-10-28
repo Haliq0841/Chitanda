@@ -8,7 +8,7 @@ if (/image/.test(mime)) {
   let encmedia = await conn.sendImageAsSticker(m.from, media, m, { packname: m.pushName, author: db.data.setting.packname })
   await fs.unlinkSync(encmedia)
   } else if (/video/.test(mime)) {
-  if ((q.msg || q).seconds > 7) return m.reply('maksimal 6 detik!')
+  //if ((q.msg || q).seconds > 7) return m.reply('maksimal 6 detik!')
   let media = await q.download()
   let encmedia = await conn.sendVideoAsSticker(m.from, media, m, { packname: m.pushName, author: db.data.setting.packname })
   await fs.unlinkSync(encmedia)
