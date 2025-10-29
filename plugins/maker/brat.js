@@ -137,6 +137,19 @@ async function BratGenerator(teks) {
   return finalBuffer
 }
 
+function colorize(ctx, width, colors) {
+  if (Array.isArray(colors)) {
+    let gradient = ctx.createLinearGradient(0, 0, width, 0);
+    let step = 1 / (colors.length - 1);
+    colors.forEach((color, index) => {
+      gradient.addColorStop(index * step, color);
+    });
+    return gradient;
+  } else {
+    return colors;
+  }
+}
+
 async function renderTextToBuffer(text, options = {}) {
   const width = 512;
   const height = 512;
