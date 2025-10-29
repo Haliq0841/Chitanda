@@ -163,7 +163,7 @@ async function renderTextToBuffer(text, options = {}) {
   const lineHeightMultiplier = 1.3;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.font = `${fontSize}px ${options.emoji === true ? 'SEGUIEMJ' : 'Sans-serif'}`;
+  ctx.font = `${fontSize}px ${options.emoji === 'emoji' ? 'SEGUIEMJ' : 'Sans-serif'}`;
   const words = text.split(" ");
   const datas = words.map(() => options.color || "black");
   let lines = [];
@@ -173,7 +173,7 @@ async function renderTextToBuffer(text, options = {}) {
     for (let word of words) {
       if (ctx.measureText(word).width > width - 2 * margin) {
         fontSize -= 2;
-        ctx.font = `${fontSize}px ${options.emoji === true ? 'SEGUIEMJ' : 'Sans-serif'}`;
+        ctx.font = `${fontSize}px ${options.emoji === 'emoji' ? 'SEGUIEMJ' : 'Sans-serif'}`;
         return rebuildLines();
       }
       let testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -192,7 +192,7 @@ async function renderTextToBuffer(text, options = {}) {
   rebuildLines();
   while (lines.length * fontSize * lineHeightMultiplier > height - 2 * margin) {
     fontSize -= 2;
-    ctx.font = `${fontSize}px ${options.emoji === true ? 'SEGUIEMJ' : 'Sans-serif'}`;
+    ctx.font = `${fontSize}px ${options.emoji === 'emoji' ? 'SEGUIEMJ' : 'Sans-serif'}`;
     rebuildLines();
   }
   const lineHeight = fontSize * lineHeightMultiplier;
@@ -228,7 +228,7 @@ async function makeBratVideo(text, {
   blur = 1,
   speed = "normal"
 } = {}) {
-  const emoji = false;
+  const emoji = emojiRegex.test(text) ? 'emoji' : 'text';
   const words = text.split(" ");
   const tmpDir = path.join(process.cwd(), "tmp_brat");
   if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
