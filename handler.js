@@ -1,13 +1,15 @@
 /* module external */
 import path from "path"
 import { createRequire } from 'module'
-import { pathToFileURL } from 'url'
+import { pathToFileURL, fileURLToPath } from 'url'
 const require = createRequire(import.meta.url)
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 
 /* module internal */
 import color from './lib/color.js'
 import { text } from "stream/consumers"
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default class CommandHandler {
     constructor() {
@@ -124,6 +126,7 @@ export default class CommandHandler {
                         color,
                         util,
                         chatUpdate: messages,
+                        __dirname,
                     })) continue
                 }
                 let _prefix = plugin.customPrefix || this.prefixes
@@ -208,6 +211,7 @@ export default class CommandHandler {
                     isOwner: m.isOwner,
                     isAdmin: m.isAdmin,
                     isBotAdmin: m.isBotAdmin,
+                    __dirname
                 }
                 try {
                     m.plugin = pluginName

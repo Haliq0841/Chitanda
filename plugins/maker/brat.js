@@ -1,8 +1,11 @@
 import { Jimp } from "jimp";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import { Canvas, GlobalFonts, createCanvas } from "@napi-rs/canvas";
+
+const __dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../')
 
 let handler = async (m, {
     conn,
