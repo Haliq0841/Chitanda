@@ -5,8 +5,11 @@ import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import { Canvas, GlobalFonts, createCanvas } from "@napi-rs/canvas";
 
-const __dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../')
 
+const __dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../')
+const emojiRegex = /([\p{Emoji}])/gu;
+  GlobalFonts.registerFromPath(path.join(__dirname, './lib/arialnarrow.ttf'), 'Narrow');
+  GlobalFonts.registerFromPath(path.join(__dirname, './lib/SEGUIEMJ.ttf'), 'SEGUIEMJ');
 let handler = async (m, {
     conn,
     usedPrefix,
@@ -59,10 +62,6 @@ async function BratGenerator(teks) {
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, width, height);
 
-  // Daftarkan font
-  const emojiRegex = /([\p{Emoji}])/gu;
-  const fontPath = emojiRegex.test(teks) ? path.join(__dirname, './lib/SEGUIEMJ.ttf') : path.join(__dirname, './lib/arialnarrow.ttf');
-  GlobalFonts.registerFromPath(fontPath, 'Narrow');
 
   // Siapkan style teks
   let fontSize = 300;
@@ -93,7 +92,7 @@ async function BratGenerator(teks) {
   // Ubah ukuran font agar muat dalam canvas
   let fits = false;
   while (!fits && fontSize > 10) {
-    ctx.font = `${fontSize}px Narrow`;
+    ctx.font = `${fontSize}px ${emojiRegex.test(teks) ? 'SEGUIEMJ' : 'Narrow'}`;
     rebuildLines();
     const totalHeight = lines.length * fontSize * 1.3;
 
