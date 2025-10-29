@@ -43,7 +43,7 @@ let handler = async (m, {
 
 handler.help = ['brat', 'bratvideo'].map(v => v + ' <teks>');
 handler.tags = ['maker'];
-handler.command = /^(brat)$/i;
+handler.command = /^(brat|brat?text|bratvid(eo)?)$/i;
 
 export default handler;
 
