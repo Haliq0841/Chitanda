@@ -228,7 +228,7 @@ async function makeBratVideo(text, {
   blur = 1,
   speed = "normal"
 } = {}) {
-  const emoji = emojiRegex.test(text);
+  const emoji = false;
   const words = text.split(" ");
   const tmpDir = path.join(process.cwd(), "tmp_brat");
   if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
