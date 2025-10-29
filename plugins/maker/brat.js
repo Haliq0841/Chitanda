@@ -60,7 +60,7 @@ async function BratGenerator(teks) {
   ctx.fillRect(0, 0, width, height);
 
   // Daftarkan font
-  const fontPath = path.join(__dirname, './lib/arialnarrow.ttf');
+  const fontPath = path.join(__dirname, './lib/SEGUIEMJ.ttf');
   GlobalFonts.registerFromPath(fontPath, 'Narrow');
 
   // Siapkan style teks
