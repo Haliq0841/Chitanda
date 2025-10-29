@@ -13,6 +13,7 @@ let handler = async (m, {
     command,
     args,
     text,
+    db,
     isOwner,
     isPrems
 }) => {
