@@ -163,7 +163,7 @@ async function renderTextToBuffer(text, options = {}) {
   const lineHeightMultiplier = 1.3;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.font = `${fontSize}px Sans-serif`;
+  ctx.font = `${fontSize}px ${emojiRegex.test(text) ? 'SEGUIEMJ' : 'Sans-serif'}`;
   const words = text.split(" ");
   const datas = words.map(() => options.color || "black");
   let lines = [];
@@ -173,7 +173,7 @@ async function renderTextToBuffer(text, options = {}) {
     for (let word of words) {
       if (ctx.measureText(word).width > width - 2 * margin) {
         fontSize -= 2;
-        ctx.font = `${fontSize}px Sans-serif`;
+        ctx.font = `${fontSize}px ${emojiRegex.test(text) ? 'SEGUIEMJ' : 'Sans-serif'}`;
         return rebuildLines();
       }
       let testLine = currentLine ? `${currentLine} ${word}` : word;
