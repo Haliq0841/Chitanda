@@ -131,7 +131,7 @@ async function BratGenerator(teks) {
   const buffer = await canvas.toBuffer('image/png');
   const image = await Jimp.read(buffer);
   image.blur(2);
-  const finalBuffer = await image.getBuffer(Jimp.MIME_PNG);
+  const finalBuffer = await image.getBuffer("image/png");
 
   return finalBuffer
 }
