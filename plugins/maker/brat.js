@@ -60,7 +60,7 @@ async function BratGenerator(teks) {
   ctx.fillRect(0, 0, width, height);
 
   // Daftarkan font
-  const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF])/;
+  const emojiRegex = /([\p{Emoji}])/gu;
   const fontPath = emojiRegex.test(teks) ? path.join(__dirname, './lib/SEGUIEMJ.ttf') : path.join(__dirname, './lib/arialnarrow.ttf');
   GlobalFonts.registerFromPath(fontPath, 'Narrow');
 
