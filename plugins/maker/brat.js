@@ -61,7 +61,7 @@ async function BratGenerator(teks) {
 
   // Daftarkan font
   const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF])/;
-  const fontPath = emojiRegex.test(text) ? path.join(__dirname, './lib/SEGUIEMJ.ttf') : path.join(__dirname, './lib/arialnarrow.ttf');
+  const fontPath = emojiRegex.test(teks) ? path.join(__dirname, './lib/SEGUIEMJ.ttf') : path.join(__dirname, './lib/arialnarrow.ttf');
   GlobalFonts.registerFromPath(fontPath, 'Narrow');
 
   // Siapkan style teks
