@@ -216,7 +216,7 @@ async function renderTextToBuffer(text, options = {}) {
   if (options.blur) {
     const img = await Jimp.read(buffer);
     img.blur(options.blur);
-    return await img.getBufferAsync(Jimp.MIME_PNG);
+    return await img.getBuffer("image/png");
   }
   return buffer;
 }
