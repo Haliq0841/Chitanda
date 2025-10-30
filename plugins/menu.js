@@ -1,11 +1,11 @@
 const handler = async (m, { conn, args, usedPrefix, thisClass, db, command }) => {
     let tags = {}
     const defaultMenu = {
-      before: 'Berikut adalah daftar menu yang tersedia:\n\n',
+      before: 'Berikut adalah daftar menu yang tersedia:',
       header: '\`%category\`:',
       body: '%cmd %islimit %isPremium',
       footer: '',
-      after: ''
+      after: 'Sisa Limit kamu saat ini:' + db.data.users[m.sender].limit
     }
     let help = Object.values(thisClass.plugins).filter(plugin => !plugin.disabled).map(plugin => {
       return {
