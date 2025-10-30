@@ -3,7 +3,7 @@ const handler = async (m, { conn, args, usedPrefix, thisClass, db, command }) =>
     const defaultMenu = {
       before: 'Berikut adalah daftar menu yang tersedia:\n\n',
       header: '\`%category\`:',
-      body: '%cmd',
+      body: '%cmd %islimit %isPremium',
       footer: '',
       after: ''
     }
