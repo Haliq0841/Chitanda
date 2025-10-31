@@ -8,10 +8,9 @@ let handler = async (m, exstra) => {
     if (!text) throw `uhm.. teksnya mana?\n\npenggunaan:\n${usedPrefix + command} <teks>\n\ncontoh:\n${usedPrefix + command} plugins/main/tes.js\nopsional:\n${usedPrefix + command} plugins/main/tes.js|command|teks/args`
     if (!m.quoted.text) throw `balas pesan nya!`
     let [path, ...act] = text.split('|')
-    const blob = new Blob([m.quoted.text], { type: 'aplication/javascript' })
-    const url = URL.createObjectURL(blob)
+    const encoded = Buffer.from(m.quoted.text).toString('base64');
     const ext = path.split('.').pop()
-    const module = ext === 'cjs' ? createRequire(url).catch(err => {throw err}) : await import(url).catch(err => {throw err})
+    const module = ext === 'cjs' ? createRequire(`data:text/javascript;base64,${encoded}`).catch(err => {throw err}) : await import(`data:text/javascript;base64,${encoded}`).catch(err => {throw err})
     if (act[0]) {
         let res = ''
         extra.command = act[0]
