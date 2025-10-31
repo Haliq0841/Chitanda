@@ -6,10 +6,10 @@ const handler = async (m, extra) => {
 
   if (!text) throw `❗ Teksnya mana?\n\nContoh:\n${usedPrefix + command} plugins/main/tes.js\nAtau:\n${usedPrefix + command} plugins/main/tes.js|command|arg1 arg2`
   if (!m.quoted?.text) throw `❗ Balas pesan yang berisi kode!`
-
+  const code = `${m.quoted.text}`.trim()
   const [path, cmd, argsText] = text.split('|')
   const ext = path.split('.').pop()
-  const encoded = Buffer.from(m.quoted.text).toString('base64')
+  const encoded = Buffer.from(code).toString('base64')
 
   if (cmd) {
     let module
