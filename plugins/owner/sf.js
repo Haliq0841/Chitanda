@@ -7,7 +7,7 @@ let handler = async (m, exstra) => {
     const { text, usedPrefix, command , conn} = extra
     if (!text) throw `uhm.. teksnya mana?\n\npenggunaan:\n${usedPrefix + command} <teks>\n\ncontoh:\n${usedPrefix + command} plugins/main/tes.js\nopsional:\n${usedPrefix + command} plugins/main/tes.js|command|teks/args`
     if (!m.quoted.text) throw `balas pesan nya!`
-    let { path, ...act} = text.split('|')
+    let [path, ...act] = text.split('|')
     const blob = new Blob([m.quoted.text], { type: 'aplication/javascript' })
     const url = URL.createObjectURL(blob)
     const ext = path.split('.').pop()
