@@ -5,20 +5,16 @@ const handler = async (m, extra) => {
   const { text, usedPrefix, command, conn} = extra
 
   if (!text) throw `❗ Teksnya mana?\n\nContoh:\n${usedPrefix + command} plugins/main/tes.js\nAtau:\n${usedPrefix + command} plugins/main/tes.js|command|arg1 arg2`
-  if (!m.quoted?.text) throw `❗ Balas pesan yang berisi kode!`
-  const code = `${m.quoted.text}`.trim()
+  if (!m.quoted?.body) throw `❗ Balas pesan yang berisi kode!`
+  const code = `${m.quoted.body}`
   const [path, cmd, argsText] = text.split('|')
   const ext = path.split('.').pop()
   const encoded = Buffer.from(code).toString('base64')
 
   if (cmd) {
-    let module
-    try {
-      module = await import(`data:text/javascript;base64,${encoded}`)
-    } catch (err) {
+    let module = await import(`data:text/javascript;base64,${encoded}`).catch(err => {
         throw `❌ Gagal mengimpor modul:\n${err}`
-    }
-
+    })
     const context = {
         ...extra,
         command: cmd,
