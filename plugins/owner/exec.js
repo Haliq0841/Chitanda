@@ -39,7 +39,7 @@ let handler = async (m, { conn, isOwner, command, text }) => {
         commandHistory.push(`${command} ${text}`);
 
         if (outputMessage.length > 4096) {
-            await conn.sendFile(m.chat, Buffer.from(stdout.trim()), 'output.txt', 'Here is the output file.');
+            await conn.sendMedia(m.from, Buffer.from(stdout.trim()), m, {caption: 'Here is the output file.', filename: 'output.txt'});
         } else {
             await m.reply(outputMessage);
         }

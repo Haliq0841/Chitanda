@@ -31,7 +31,7 @@ const handler = async (m, extra) => {
     }
     } else {
     try {
-      fs.writeFileSync(path, m.quoted.text)
+      fs.writeFileSync(path, code)
       m.reply(`✅ Tersimpan di: ${path}`)
     } catch (err) {
       throw `❌ Gagal menyimpan file:\n${err}`
