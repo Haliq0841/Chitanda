@@ -99,14 +99,12 @@ export default class CommandHandler {
             if (db.data.setting.autoread) {
                 await sock.readMessages([m.key])
             }
-            m.limit = false
             for (const pluginName in this.plugins) {
                 const plugin = this.plugins[pluginName]
                 if (!plugin) continue
                 if (plugin.disabled) continue
                 let fail = plugin.fail || this.dfail
-                if (!isPrems)
-                        m.limit = plugin.limit || m.limit
+                m.limit = false
                 m.exp = 0
                 if (typeof plugin.all === 'function') {
                     try {
@@ -143,6 +141,44 @@ export default class CommandHandler {
                         typeof plugin.command === 'string' ?
                             plugin.command === command :
                             false
+                if (!isAccept) continue
+                if (plugin.owner && !m.isOwner) {
+                    fail('owner', m, sock)
+                    continue
+                }
+                if (plugin.group && !m.isGroup) {
+                    fail('group', m, sock)
+                    continue
+                }
+                if (plugin.private && m.isGroup) {
+                    fail('private', m, sock)
+                    continue
+                }
+                if (plugin.admin && m.isGroup && !m.isAdmin) {
+                    fail('admin', m, sock)
+                    continue
+                }
+                if (plugin.botAdmin && m.isGroup && !m.isBotAdmin) {
+                    fail('botAdmin', m, sock)
+                    continue
+                }
+                if (plugin.nsfw && m.isGroup && !gc.nsfw) {
+                    fail('nsfw', m, sock)
+                    continue
+                }
+                if (plugin.restrict && db.data.setting.restrict && !m.isOwner) {
+                    fail('restrict', m, sock)
+                    continue
+                }
+                if (plugin.premium && !isPrems) {
+                    fail('premium', m, sock)
+                    continue
+                }
+                if (plugin.registered && !usr.registered) {
+                    fail('unreg', m, sock)
+                    continue
+                }
+                m.isCommand = true
                 let xp = 'exp' in plugin ? parseInt(plugin.exp) : 17
                 if (xp > 200)
                     console.log("ngecit -_-")
@@ -173,46 +209,10 @@ export default class CommandHandler {
                     __dirname
                 }
                 try {
-                    if (!isAccept) continue
-                    if (plugin.owner && !m.isOwner) {
-                        fail('owner', m, sock)
-                        continue
-                    }
-                    if (plugin.group && !m.isGroup) {
-                        fail('group', m, sock)
-                        continue
-                    }
-                    if (plugin.private && m.isGroup) {
-                        fail('private', m, sock)
-                        continue
-                    }
-                    if (plugin.admin && m.isGroup && !m.isAdmin) {
-                        fail('admin', m, sock)
-                        continue
-                    }
-                    if (plugin.botAdmin && m.isGroup && !m.isBotAdmin) {
-                        fail('botAdmin', m, sock)
-                        continue
-                    }
-                    if (plugin.nsfw && m.isGroup && !gc.nsfw) {
-                        fail('nsfw', m, sock)
-                        continue
-                    }
-                    if (plugin.restrict && db.data.setting.restrict && !m.isOwner) {
-                        fail('restrict', m, sock)
-                        continue
-                    }
-                    if (plugin.premium && !isPrems) {
-                        fail('premium', m, sock)
-                        continue
-                    }
-                    if (plugin.registered && !usr.registered) {
-                        fail('unreg', m, sock)
-                        continue
-                    }
-                    m.isCommand = true
                     m.plugin = pluginName
                     await plugin.call(sock, m, extra)
+                    if (!isPrems)
+                        m.limit = m.limit || plugin.limit || false
                 } catch (error) {
                     m.error = error
                     m.reply(util.format(error))
@@ -228,10 +228,7 @@ export default class CommandHandler {
                 }
                 if (m.limit) {
                     db.data.users[m.sender].limit -= m.limit * 1
-                    if (m.limit * 1 > 0)
-                        m.reply(m.limit + ' ʟɪᴍɪᴛ ᴋᴀᴍᴜ ᴛᴇʀᴘᴀᴋᴀɪ ✔️')
-                    else if (m.limit * 1 < 0)
-                        m.reply(m.limit + ' ʟɪᴍɪᴛ ᴋᴀᴍᴜ ʙᴇʀᴛᴀᴍʙᴀʜ ✅')
+                    m.reply(+m.limit + ' ʟɪᴍɪᴛ ᴋᴀᴍᴜ ᴛᴇʀᴘᴀᴋᴀɪ ✔️')
                 }
                 if (m.exp)
                     db.data.users[m.sender].exp += m.exp * 1
