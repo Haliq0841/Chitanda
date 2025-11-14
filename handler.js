@@ -106,7 +106,7 @@ export default class CommandHandler {
                 if (plugin.disabled) continue
                 let fail = plugin.fail || this.dfail
                 if (!isPrems)
-                        m.limit = m.limit || plugin.limit || false
+                        m.limit = plugin.limit || m.limit
                 m.exp = 0
                 if (typeof plugin.all === 'function') {
                     try {
