@@ -1,6 +1,4 @@
-async function handler(m) {
-    
-}
+let handler = m => m
 handler.after = async function (m) {
     if (m.limit) {
         if (m.from === '120363041768083672@g.us') {
