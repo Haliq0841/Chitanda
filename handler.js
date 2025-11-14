@@ -100,10 +100,6 @@ export default class CommandHandler {
                 await sock.readMessages([m.key])
             }
 
-            // readstory
-            //const sw = await func.loads("amiruldev/sw.js")
-            //await sw(sock, db, m)
-            
             for (const pluginName in this.plugins) {
                 const plugin = this.plugins[pluginName]
                 if (!plugin) continue
@@ -233,7 +229,10 @@ export default class CommandHandler {
                 }
                 if (m.limit) {
                     db.data.users[m.sender].limit -= m.limit * 1
-                    m.reply(+m.limit + ' ʟɪᴍɪᴛ ᴋᴀᴍᴜ ᴛᴇʀᴘᴀᴋᴀɪ ✔️')
+                    if (m.limit * 1 > 0)
+                        m.reply(m.limit + ' ʟɪᴍɪᴛ ᴋᴀᴍᴜ ᴛᴇʀᴘᴀᴋᴀɪ ✔️')
+                    else if (m.limit * 1 < 0)
+                        m.reply(m.limit + ' ʟɪᴍɪᴛ ᴋᴀᴍᴜ ʙᴇʀᴛᴀᴍʙᴀʜ ✅')
                 }
                 if (m.exp)
                     db.data.users[m.sender].exp += m.exp * 1
@@ -278,46 +277,6 @@ export default class CommandHandler {
         
         console.log(print)
     }
-/*
-    async handleCommand(text, prefix, m, sock, db, func, color, util, usr) {
-        const [cmd, ...args] = text.slice(prefix.length).trim().split(' ')
-        const command = this.commands.get(cmd.toLowerCase())
-
-        if (command && !command.noPrefix) {
-            const cmd = await func.loads('amiruldev/cmd.js')
-            const mcmd = await cmd(command, usr, sock, m, db)
-            if (mcmd) return;
-            try {
-                const parsedArgs = this.parseArguments(args, command.expectedArgs)
-                await command.run(m, { sock, args: parsedArgs, db, util, color, func, cmds: this.commands })
-                return true
-            } catch (error) {
-                console.error("[ERROR] Error executing prefixed command:", error)
-            }
-        }
-        return false
-    }
-
-    async handleNoPrefixCommand(text, m, sock, db, func, color, util) {
-        const [potentialCmd, ...args] = text.split(' ')
-        const command = this.commands.get(potentialCmd.toLowerCase())
-        const usr = db.data.users[m.sender] || {}
-
-        if (command && command.noPrefix) {
-            const cmd = await func.loads('amiruldev/cmd.js')
-            const mcmd = await cmd(command, usr, sock, m, db)
-            if (mcmd) return;
-            try {
-                const parsedArgs = this.parseArguments(args, command.expectedArgs)
-                await command.run(m, { sock, args: parsedArgs, db, util, color, func, cmds: this.commands })
-                return true
-            } catch (error) {
-                console.error("[ERROR] Error executing non-prefixed command:", error)
-            }
-        }
-        return false
-    }
-*/
     parseArguments(args, expectedArgs) {
         const argObject = {}
         args.forEach(arg => {
