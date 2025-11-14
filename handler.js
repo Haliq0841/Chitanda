@@ -142,44 +142,6 @@ export default class CommandHandler {
                         typeof plugin.command === 'string' ?
                             plugin.command === command :
                             false
-                if (!isAccept) continue
-                if (plugin.owner && !m.isOwner) {
-                    fail('owner', m, sock)
-                    continue
-                }
-                if (plugin.group && !m.isGroup) {
-                    fail('group', m, sock)
-                    continue
-                }
-                if (plugin.private && m.isGroup) {
-                    fail('private', m, sock)
-                    continue
-                }
-                if (plugin.admin && m.isGroup && !m.isAdmin) {
-                    fail('admin', m, sock)
-                    continue
-                }
-                if (plugin.botAdmin && m.isGroup && !m.isBotAdmin) {
-                    fail('botAdmin', m, sock)
-                    continue
-                }
-                if (plugin.nsfw && m.isGroup && !gc.nsfw) {
-                    fail('nsfw', m, sock)
-                    continue
-                }
-                if (plugin.restrict && db.data.setting.restrict && !m.isOwner) {
-                    fail('restrict', m, sock)
-                    continue
-                }
-                if (plugin.premium && !isPrems) {
-                    fail('premium', m, sock)
-                    continue
-                }
-                if (plugin.registered && !usr.registered) {
-                    fail('unreg', m, sock)
-                    continue
-                }
-                m.isCommand = true
                 let xp = 'exp' in plugin ? parseInt(plugin.exp) : 17
                 if (xp > 200)
                     console.log("ngecit -_-")
@@ -210,6 +172,44 @@ export default class CommandHandler {
                     __dirname
                 }
                 try {
+                    if (!isAccept) continue
+                    if (plugin.owner && !m.isOwner) {
+                        fail('owner', m, sock)
+                        continue
+                    }
+                    if (plugin.group && !m.isGroup) {
+                        fail('group', m, sock)
+                        continue
+                    }
+                    if (plugin.private && m.isGroup) {
+                        fail('private', m, sock)
+                        continue
+                    }
+                    if (plugin.admin && m.isGroup && !m.isAdmin) {
+                        fail('admin', m, sock)
+                        continue
+                    }
+                    if (plugin.botAdmin && m.isGroup && !m.isBotAdmin) {
+                        fail('botAdmin', m, sock)
+                        continue
+                    }
+                    if (plugin.nsfw && m.isGroup && !gc.nsfw) {
+                        fail('nsfw', m, sock)
+                        continue
+                    }
+                    if (plugin.restrict && db.data.setting.restrict && !m.isOwner) {
+                        fail('restrict', m, sock)
+                        continue
+                    }
+                    if (plugin.premium && !isPrems) {
+                        fail('premium', m, sock)
+                        continue
+                    }
+                    if (plugin.registered && !usr.registered) {
+                        fail('unreg', m, sock)
+                        continue
+                    }
+                    m.isCommand = true
                     m.plugin = pluginName
                     await plugin.call(sock, m, extra)
                     if (!isPrems)
