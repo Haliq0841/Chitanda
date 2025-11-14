@@ -99,13 +99,12 @@ export default class CommandHandler {
             if (db.data.setting.autoread) {
                 await sock.readMessages([m.key])
             }
-
+            m.limit = false
             for (const pluginName in this.plugins) {
                 const plugin = this.plugins[pluginName]
                 if (!plugin) continue
                 if (plugin.disabled) continue
                 let fail = plugin.fail || this.dfail
-                m.limit = false
                 if (!isPrems)
                         m.limit = m.limit || plugin.limit || false
                 m.exp = 0
