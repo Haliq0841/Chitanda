@@ -106,6 +106,8 @@ export default class CommandHandler {
                 if (plugin.disabled) continue
                 let fail = plugin.fail || this.dfail
                 m.limit = false
+                if (!isPrems)
+                        m.limit = m.limit || plugin.limit || false
                 m.exp = 0
                 if (typeof plugin.all === 'function') {
                     try {
@@ -212,8 +214,6 @@ export default class CommandHandler {
                     m.isCommand = true
                     m.plugin = pluginName
                     await plugin.call(sock, m, extra)
-                    if (!isPrems)
-                        m.limit = m.limit || plugin.limit || false
                 } catch (error) {
                     m.error = error
                     m.reply(util.format(error))
