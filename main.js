@@ -235,7 +235,7 @@ async function connectWA() {
                     }
                     break
                 default:
-
+                    process.send('reset')
             }
         }
         if (connection === "open") {

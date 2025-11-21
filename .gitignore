@@ -140,7 +140,6 @@ vite.config.ts.timestamp-*
 
 session/
 db.json
-package-lock.json
 config.js
 test.js
 test.js
