@@ -6,7 +6,7 @@ import { Innertube, UniversalCache, YTNodes, Parser } from 'youtubei.js'
 let mess = null;
 let isLogin = false;
 const credentialsPath = (new URL('../../.credentials.json', import.meta.url)).pathname;
-const yt = await Innertube.create({ client_type: 'TV' });
+const yt = await Innertube.create();
     yt.session.on('update-credentials', ({ credentials }) => {
         console.log('Token diperbarui otomatis, simpan ulang ke file.');
         fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
@@ -56,10 +56,14 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, usedPrefix, co
             let feed = await yt.getHomeFeed();
             m.reply(JSON.stringify(feed, null, 2));
         break
+        case 'getcookies':
+            let cookies = yt.session.
+            m.reply(JSON.stringify(cookies, null, 2));
+        break
     }
 }
 
-handler.command = /^yts|gethomefeed$/i
+handler.command = /^yts|gethomefeed|getcookies$/i
 handler.help = ['yt <url>']
 handler.tags = ['downloader']
 
