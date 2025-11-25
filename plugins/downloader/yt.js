@@ -50,13 +50,16 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, usedPrefix, co
         break
         case 'yts':
             let res = await yt.search(text)
-            console.log(res);
             m.reply(res);
+        break
+        case 'gethomefeed':
+            let feed = await yt.getHomeFeed();
+            m.reply(JSON.stringify(feed, null, 2));
         break
     }
 }
 
-handler.command = /^yts$/i
+handler.command = /^yts|gethomefeed$/i
 handler.help = ['yt <url>']
 handler.tags = ['downloader']
 
