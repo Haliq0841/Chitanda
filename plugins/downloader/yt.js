@@ -57,8 +57,8 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, usedPrefix, co
             m.reply(JSON.stringify(feed, null, 2));
         break
         case 'getcookies':
-            let cookies = yt.session.
-            m.reply(JSON.stringify(cookies, null, 2));
+            let cookies = yt.session.cookies
+            m.reply(cookies);
         break
     }
 }
