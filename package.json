@@ -32,6 +32,6 @@
         "node-webpmux": "^3.2.1",
         "qrcode": "^1.5.4",
         "syntax-error": "^1.4.0",
-        "ytdl-core-enhanced": "^2.1.0"
+        "youtubei.js": "^16.0.1"
     }
 }

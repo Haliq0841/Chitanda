@@ -1,70 +1,62 @@
+import { unixTimestampSeconds } from 'baileys'
 import fs from 'fs'
 import path from 'path'
-import ytdl from 'ytdl-core-enhanced'
+import { Innertube, UniversalCache, YTNodes, Parser } from 'youtubei.js'
+
+let mess = null;
+let isLogin = false;
+const credentialsPath = (new URL('../../.credentials.json', import.meta.url)).pathname;
+const yt = await Innertube.create({ client_type: 'TV' });
+    yt.session.on('update-credentials', ({ credentials }) => {
+        console.log('Token diperbarui otomatis, simpan ulang ke file.');
+        fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
+    });
+    yt.session.on('auth-pending', (data) => {
+        console.log('Buka URL ini:', data.verification_url);
+        console.log('Masukkan kode ini:', data.user_code);
+        if (mess) mess.reply('Buka URL ini:\n' + data.verification_url + '\n\nMasukkan kode ini:\n' + data.user_code);
+    });
+    yt.session.on('auth', ({ credentials }) => {
+        isLogin = true;
+        console.log('Login berhasil, menyimpan kredensial...');
+        if (mess) mess.reply('Login berhasil!');
+        fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
+    });
 
 const handler = async (m, { conn, args, isOwner, text, __dirname, usedPrefix, command }) => {
+    if (!isLogin) {
+        if (fs.existsSync(credentialsPath)) {
+            const savedCreds = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+            await yt.session.signIn(savedCreds);
+            console.log('Masuk dengan kredensial tersimpan (TV client).');
+            isLogin = true;
+        } else {
+            if (!isOwner) throw 'Belum ada akun youtube silahkan minta owner untuk sig in dengan akun youtube terlebih dahulu';
+            mess = m;
+            await yt.session.signIn();
+        }
+    }
+    
     if (!text) throw `url YT nya mana?\nexample: ${usedPrefix + command} url`
-    const cookiePath = path.join(__dirname, '.ytdl-cookie.txt')
-    if (command.toLowerCase() == 'updateytcookie') {
-        /*
-For 403 Forbidden Error, age-restricted, region-locked, or member-only videos, you need to provide YouTube cookies from a logged-in account.
-
-### Method 1: Using Cookie Editor Extension (Recommended)
-
-1. Install [Cookie-Editor](https://cookie-editor.com/) extension for your browser:
-   - [Chrome/Edge/Kiwi Browser(android)](https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)
-   - [Firefox](https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/)
-
-2. Go to [YouTube](https://www.youtube.com) and log in to your account (private mode Recommended)
-
-3. Click the Cookie-Editor extension icon
-
-4. Click "Export" → "Header String" (this copies cookie string to clipboard)
-
-5. Use the cookie with command .updateYtCookie with reply your cookie message
-        */
-        if (!isOwner) return !0
-        if (!m.quoted?.body) throw `Balas pesan yang berisi cookie!`
-        const cookieString = `${m.quoted.body}`
-        fs.writeFileSync(cookiePath, cookieString)
-        return m.reply('Cookie berhasil diupdate!\n' + cookiePath)
-    } //**Cookie Lifespan**: YouTube cookies typically last 1-2 weeks. If downloads start failing with 403 errors, refresh your cookies.
-    const cookieString = fs.existsSync(cookiePath) ? fs.readFileSync(cookiePath, 'utf-8') : ''
-    let { key } = await conn.sendMessage(m.from, {text: 'Tunggu sebentar kak, sedang mengambil data...'})
-    const agent = {
-        requestOptions: {
-            headers: {
-                'Cookie': cookieString
-            }
-        }
-    }
-
-    const processMP3 = async ({url, quality}) => {
-        const Options = {
-            quality: 'highest',
-            filter: 'audioonly',
-            ...agent
-        }
-        return await new Promise((resolve, reject) => {
-            const audio = ytdl(url, Options)
-
-        })
-    }
     switch (command) {
         case 'ytmp3':
         case 'ytmusic':
         case 'ytmusik':
             let url = args[0]
             try {
-                let res = await ytdl.getInfo(url)
-                let audio = await ytdl(url, { quality: 'highestaudio', filter: 'audioonly' })
             } catch (e) {
 
             }
+        break
+        case 'yts':
+            let res = await yt.search(text)
+            console.log(res);
+            m.reply(res);
+        break
     }
 }
 
-handler.command = /^updateytcookie$/i
+handler.command = /^yts$/i
 handler.help = ['yt <url>']
 handler.tags = ['downloader']
 
