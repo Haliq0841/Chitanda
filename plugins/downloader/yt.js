@@ -53,8 +53,14 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, usedPrefix, co
             m.reply(res);
         break
         case 'ytinfo':
-            let feed = await yt.getInfo(text);
-            m.reply(JSON.stringify(feed, null, 2));
+            const videoInfo = await yt.actions.execute('/player', {
+    // You can add any additional payloads here, and they'll merge with the default payload sent to InnerTube.
+                videoId: text,
+                client: 'YTMUSIC', // InnerTube client to use.
+                parse: true // tells YouTube.js to parse the response (not sent to InnerTube).
+           });
+            m.reply(videoInfo);
+
         break
     }
 }
