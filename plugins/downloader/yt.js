@@ -6,7 +6,7 @@ import { Innertube, UniversalCache, YTNodes, Parser } from 'youtubei.js'
 let mess = null;
 let isLogin = false;
 const credentialsPath = (new URL('../../.credentials.json', import.meta.url)).pathname;
-const yt = await Innertube.create({ client_type: 'TV' });
+const yt = await Innertube.create({ client_type: 'WEB' });
     yt.session.on('update-credentials', ({ credentials }) => {
         console.log('Token diperbarui otomatis, simpan ulang ke file.');
         fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
