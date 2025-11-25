@@ -53,17 +53,13 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, usedPrefix, co
             m.reply(res);
         break
         case 'gethomefeed':
-            let feed = await yt.getHomeFeed();
+            let feed = await yt.getGuide();
             m.reply(JSON.stringify(feed, null, 2));
-        break
-        case 'getcookies':
-            let cookies = yt.session.cookies
-            m.reply(cookies);
         break
     }
 }
 
-handler.command = /^yts|gethomefeed|getcookies$/i
+handler.command = /^yts|gethomefeed$/i
 handler.help = ['yt <url>']
 handler.tags = ['downloader']
 
