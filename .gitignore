@@ -144,4 +144,4 @@ config.js
 test.js
 test.js
 plugins/tes.js
-.ytdl-cookie.txt
+.yt-cookie.txt
