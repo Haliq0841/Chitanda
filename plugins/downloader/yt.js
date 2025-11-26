@@ -85,7 +85,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
     }
 }
 
-handler.command = /^yts|ytinfo$/i
+handler.command = /^yts|ytinfo|setytcookie$/i
 handler.help = ['yt <url>']
 handler.tags = ['downloader']
 
