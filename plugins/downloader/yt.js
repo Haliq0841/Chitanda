@@ -47,7 +47,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
             if (!isOwner) throw 'Command ini hanya bisa digunakan oleh owner!';
             const cookie =  m.quoted ?  m.quoted.msg.text : text ?? undefined
             if (!cookie) throw `Silahkan reply pesan yang berisi cookie atau ketik ${usedPrefix}setytcookie cookie`;
-            fs.writeFileSync(cookiePath, cookie);
+            fs.writeFileSync(cookiePath, `${cookie}`);
             m.reply('Berhasil menyimpan cookie .yt-cookie.txt');
             thisClass.loadPlugin((new URL(import.meta.url)).pathname)
         } else if (!fs.existsSync(cookiePath)) {
@@ -69,7 +69,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
         break
         case 'yts':
             let res = await yt.search(text)
-            m.reply(res);
+            m.reply(JSON.stringify(res, null, 2));
         break
         case 'ytinfo':
             const videoInfo = await yt.actions.execute('/player', {
@@ -78,8 +78,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 client: 'YTMUSIC', // InnerTube client to use.
                 parse: true // tells YouTube.js to parse the response (not sent to InnerTube).
            });
-            m.reply(videoInfo);
-
+            m.reply(JSON.stringify(videoInfo, null, 2));
         break
     }
 }
