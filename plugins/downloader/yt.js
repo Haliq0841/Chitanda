@@ -12,7 +12,7 @@ const yt = await Innertube.create({
     client_type: client_type,
     lang: 'id',
     location: 'id',
-    cookie: client_type === 'TV' && fs.existsSync(cookiePath) ? fs.readFileSync(cookiePath, 'utf-8') : undefined
+    cookie: client_type !== 'TV' && fs.existsSync(cookiePath) ? fs.readFileSync(cookiePath, 'utf-8') : undefined
 });
     yt.session.on('update-credentials', ({ credentials }) => {
         console.log('Token diperbarui otomatis, simpan ulang ke file.');
