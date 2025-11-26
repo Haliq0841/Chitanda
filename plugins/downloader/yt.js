@@ -49,7 +49,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
             if (!cookie) throw `Silahkan reply pesan yang berisi cookie atau ketik ${usedPrefix}setytcookie cookie`;
             fs.writeFileSync(cookiePath, `${cookie}`);
             m.reply('Berhasil menyimpan cookie .yt-cookie.txt');
-            thisClass.loadPlugin((new URL(import.meta.url)).pathname)
+            return thisClass.loadPlugin((new URL(import.meta.url)).pathname)
         } else if (!fs.existsSync(cookiePath)) {
             if (!isOwner) throw 'Belum ada cookie youtube silahkan minta owner untuk menambahkan cookie terlebih dahulu';
             return m.reply(`Silahkan tambahkan cookie youtube di file .yt-cookie.txt\nKetik ${usedPrefix}setytcookie <reply cookie>\n\nCara mendapatkan cookie:\n1. Buka browser (untuk Android bisa gunakan MS Edge)\n2. Klik titik 3 atau toolbar cari menu Extensi, install cookie-editor\n3. Buka youtube.com (Di sarankan menggunakan mode penyamaran)\n4.login dengan akun google kamu\n5. Setelah berhasil login buka salah satu video dulu, buka cookie-editor, lalu export cookie dalam format Header-String\n6. Salin semua isinya dan ketik ${usedPrefix}setytcookie <paste disini/reply pesan berisi cookie>`);
