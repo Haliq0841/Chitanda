@@ -42,7 +42,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
             mess = m;
             await yt.session.signIn();
         }
-    } else if (!isLogin && client_type !== 'TV') {
+    } else if (client_type !== 'TV') {
         if (command == 'setytcookie') {
             if (!isOwner) throw 'Command ini hanya bisa digunakan oleh owner!';
             const cookie =  m.quoted ?  m.quoted.msg.text : text ?? undefined
@@ -53,8 +53,9 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
         } else if (!fs.existsSync(cookiePath)) {
             if (!isOwner) throw 'Belum ada cookie youtube silahkan minta owner untuk menambahkan cookie terlebih dahulu';
             return m.reply(`Silahkan tambahkan cookie youtube di file .yt-cookie.txt\nKetik ${usedPrefix}setytcookie <reply cookie>\n\nCara mendapatkan cookie:\n1. Buka browser (untuk Android bisa gunakan MS Edge)\n2. Klik titik 3 atau toolbar cari menu Extensi, install cookie-editor\n3. Buka youtube.com (Di sarankan menggunakan mode penyamaran)\n4.login dengan akun google kamu\n5. Setelah berhasil login buka salah satu video dulu, buka cookie-editor, lalu export cookie dalam format Header-String\n6. Salin semua isinya dan ketik ${usedPrefix}setytcookie <paste disini/reply pesan berisi cookie>`);
+        } else {
+            isLogin = true;
         }
-        isLogin = true;
     }
     if (!text) throw `url YT nya mana?\nexample: ${usedPrefix + command} url`
     switch (command) {
