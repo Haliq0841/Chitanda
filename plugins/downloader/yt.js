@@ -1,7 +1,32 @@
 import { unixTimestampSeconds } from 'baileys'
 import fs from 'fs'
 import path from 'path'
-import { Innertube, UniversalCache, YTNodes, Parser } from 'youtubei.js'
+import { Innertube, UniversalCache, YTNodes, Parser, Utils, Platform } from 'youtubei.js'
+import vm from 'node:vm';
+import ffmpeg from 'fluent-ffmpeg';
+import { PassThrough } from 'stream';
+
+Platform.shim.eval = async (data, env) => {
+  const properties = [];
+
+  if (env.n) {
+    properties.push(`n: exportedVars.nFunction("${env.n}")`);
+  }
+  if (env.sig) {
+    properties.push(`sig: exportedVars.sigFunction("${env.sig}")`);
+  }
+
+  const code = `
+    (function() {
+      ${data.output}
+      return { ${properties.join(', ')} };
+    })()
+  `;
+
+  const context = { exportedVars: {} };
+  const script = new vm.Script(code);
+  return script.runInNewContext(context);
+};
 
 let mess = null;
 let isLogin = false;
@@ -11,7 +36,7 @@ let client_type = 'WEB'; //WEB, ANDROID, TV, YTMUSIC. untuk masuk dengan credent
 const yt = await Innertube.create({
     client_type: client_type,
     lang: 'id',
-    location: 'id',
+    //location: 'id',
     cookie: client_type !== 'TV' && fs.existsSync(cookiePath) ? fs.readFileSync(cookiePath, 'utf-8') : undefined
 });
     yt.session.on('update-credentials', ({ credentials }) => {
@@ -57,20 +82,90 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
             isLogin = true;
         }
     }
-    if (!text) throw `url YT nya mana?\nexample: ${usedPrefix + command} url`
     switch (command) {
         case 'ytmp3':
         case 'ytmusic':
         case 'ytmusik':
-            let url = args[0]
+        case 'play':
+            let url = text.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            let key;
+            let published;
+            if (!url) {
+                if (args[0]) {
+                    key = (await conn.sendMessage(m.from, {text: 'Tunggu kak, sedang menelusuri...'})).key;
+                    let { results } = await yt.search(text);
+                    if (results.length === 0) throw 'Tidak ditemukan hasil untuk: ' + text;
+                    let video = results.find(video => video.type.toLowerCase() === 'video');
+                    if (!video) throw 'Tidak ditemukan hasil untuk: ' + text;
+                    url = [
+                        '', video.id
+                    ]
+                    published = video.published?.text;
+                } else {
+                    throw 'Masukkan link youtube atau kata kunci pencarian!';
+                }
+            } else {
+                key = (await conn.sendMessage(m.from, {text: 'Tunggu kak, sedang mengambil data...'})).key;
+            }
+            let videoId = url[1];
+            if (!videoId) throw 'Link tidak valid, pastikan linknya benar';
+            url = `https://www.youtube.com/watch?v=${videoId}`;
             try {
+                const { basic_info } = await yt.music.getInfo(videoId);
+                let caption = `${basic_info.title}`;
+                if (published)
+                    caption += `\nDiupload: ${published}`
+                else
+                    caption += `\nDurasi: ${formatDuration(basic_info.duration)}`;
+                await conn.sendMessage(m.from, {text: `Berhasil Menemukan *${basic_info.title}*,\nSedang mendownload...`, edit: key });
+                const stream = await yt.download(`${videoId}`, {
+                    type: 'audio',
+                    quality: 'best',
+                    format: 'mp4',
+                    client: 'YTMUSIC'
+                });
+                const inputStream = new PassThrough();
+                for await (const chunk of Utils.streamToIterable(stream)) {
+                  inputStream.write(chunk);
+                }
+                inputStream.end();
+                await conn.sendMessage(m.from, {text: `lagu *${basic_info.title}* selesai di download, sedang konversi ke format mp3...`, edit: key });
+                const chunks = [];
+                await new Promise((resolve, reject) => {
+                  ffmpeg(inputStream)
+                    .format('mp3')
+                    .on('error', reject)
+                    .on('end', resolve)
+                    .pipe()
+                    .on('data', chunk => chunks.push(chunk));
+                });
+                const mp3Buffer = Buffer.concat(chunks);
+                await conn.sendMessage(m.from, {text: `Mengirim...`, edit: key });
+                await conn.sendMessage(m.from, { 
+                audio: mp3Buffer, 
+                mimetype: 'audio/mpeg', fileName: `${basic_info.title}.mp3`, contextInfo: {
+                    externalAdReply: {
+                        showAdAttribution: false,
+                        renderLargerThumbnail: true,
+                        mediaType:  2,
+                        mediaUrl: url,
+                        title: caption ,
+                        body: basic_info.author,
+                        sourceUrl: url,
+                        thumbnail: await fetch(basic_info.thumbnail[0].url).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf))
+                    }
+                }
+            }, { quoted: m })
             } catch (e) {
-
+                await conn.sendMessage(m.from, {text: `Gagal`, edit: key });
+                throw e
             }
         break
         case 'yts':
-            let res = await yt.search(text)
-            m.reply(JSON.stringify(res, null, 2));
+            let res = await yt.search(text, {
+
+            })
+            throw res.results
         break
         case 'ytinfo':
             const videoInfo = await yt.actions.execute('/player', {
@@ -84,8 +179,15 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
     }
 }
 
-handler.command = /^yts|ytinfo|setytcookie$/i
-handler.help = ['yt <url>']
+handler.command = /^yts|ytinfo|setytcookie|ytmp3|play$/i
+handler.help = ['play', 'ytmp3']
 handler.tags = ['downloader']
 
 export default handler
+
+function formatDuration(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  // tambahkan leading zero untuk detik < 10
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
