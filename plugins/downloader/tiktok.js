@@ -24,11 +24,16 @@ var handler = async (m, { conn, args, text, usedPrefix, command }) => {
                     url: res.result.music.playUrl[0]
                 }, 
                 mimetype: 'audio/mp4', fileName: `${res.result.music.title}`, contextInfo: { externalAdReply: {
+                    showAdAttribution: false,
+                    renderLargerThumbnail: true,
+                    mediaType:  2,
+                    mediaUrl: 'https://m.youtube.com/results?sp=mAEA&search_query=' + encodeURIComponent(res.result.music.title.replace("original sound", "suara asli")),
                     title: res.result.music.title.replace("original sound", "suara asli"),
                     body: res.result.music.author,
-                    sourceUrl: 'https://m.youtube.com/results?sp=mAEA&search_query=' + res.result.music.title.replace("original sound", "suara asli"),
-                    thumbnailUrl: res.result.music.coverLarge[0],
-                    renderLargerThumbnail: true
+                    sourceUrl: 'https://m.youtube.com/results?sp=mAEA&search_query=' + encodeURIComponent(res.result.music.title.replace("original sound", "suara asli")),
+                    thumbnail: await fetch(res.result.music.coverLarge[0]).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf))
+
+
                 }}
             }, { quoted: m })
         }
