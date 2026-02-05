@@ -60,7 +60,7 @@ function gachaRoll(history) {
 }
 
 const handler = async (m, { db , conn, isOwner }) => {
-  db.data.users[m.sender].klaim ?? {rollsSince5: 0, rollsSince4: 0, last:0};
+  db.data.users[m.sender].klaim = db.data.users[m.sender].klaim ?? {rollsSince5: 0, rollsSince4: 0, last:0};
   let time = db.data.users[m.sender].klaim.last + 43200000; //86400000;
   if (new Date - db.data.users[m.sender].klaim.last < 43200000 && !isOwner) throw `Kamu Sudah Mengambilnya\nDapat di ambil dalam ${msToTime(time - new Date())} Lagi`
   let roll = gachaRoll(db.data.users[m.sender].klaim);
