@@ -5,7 +5,7 @@ let handler = async (m, { conn, text, args, usedPrefix, command }) => {
     let url = args[0]
     let { key } = await conn.sendMessage(m.from, {text: 'Tunggu sebentar kak, sedang mengambil data...'})
     try {
-        const base_url = 'https://api.instantdp.com/igdl'
+        const base_url = 'https://www.instantdp.com/api/instagram'
         const options = {
          method: 'POST',
          url: base_url,
@@ -31,8 +31,27 @@ let handler = async (m, { conn, text, args, usedPrefix, command }) => {
             count++
         }
         } catch (e) {
-        await conn.sendMessage(m.from, {text: `Gagal`, edit: key })
-        console.log(e)
+            try {
+        let Res = await axios({
+         method: 'GET',
+         url: `https://api.siputzx.my.id/api/d/sssinstagram?url=${url}`,
+         headers:
+         {
+             'Content-Type': 'application/json',
+             'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+            // 'Referer': 'https://www.instantdp.com/instagram'
+         },
+        })
+        await conn.sendMedia(m.from, Res.data?.data?.url[0]?.url, m)
+        //await conn.sendMessage(m.from, {text: `Gagal`, edit: key })
+        m.limit += 1
+            } catch (er) {
+                const response = await axios.get('https://api.betabotz.eu.org/api/download/igdowloader?', {
+      params: { url: url, apikey: 'Btz-LtRHR'}
+    });
+                await conn.sendMedia(m.from, response.data?.message[0]?._url, m)
+                m.limit += 2
+            }
     }
 }
 

@@ -1,7 +1,10 @@
+import { YtDlp } from 'ytdlp-nodejs';
+
+const ytdlp = new YtDlp();
 import fs from 'fs'
 import path from 'path'
 import { Innertube, UniversalCache, YTNodes, Constants, Parser, Utils, Platform, ClientType } from 'youtubei.js'
-import { BG } from 'bgutils-js';
+import { BG, buildURL, GOOG_API_KEY, USER_AGENT } from "bgutils-js";
 import { JSDOM } from 'jsdom';
 import { SabrStream } from 'googlevideo/sabr-stream';
 import { buildSabrFormat, EnabledTrackTypes } from 'googlevideo/utils';
@@ -37,13 +40,14 @@ const cookiePath = (new URL('../../.yt-cookie.txt', import.meta.url)).pathname;
 let client_type = 'WEB'; //WEB, ANDROID, TV, YTMUSIC. untuk masuk dengan credentials hanya bisa menggunkan client tv (akses sangat terbatas)
 const yt = await Innertube.create({
     lang: 'id',
-    user_agent: `Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15`,
+    user_agent: USER_AGENT,
     client_type: client_type,
-    cache: new UniversalCache(true),
-    retrieve_player: true,
-    device_category: 'desktop',
-    enable_session_cache: true,
-    generate_session_locally: true,
+    //cache: new UniversalCache(true),
+    //retrieve_player: true,
+    //device_category: 'desktop',
+    //enable_session_cache: true,
+    //generate_session_locally: true,
+    player_id: "0004de42",
     cookie: client_type !== 'TV' && fs.existsSync(cookiePath) ? fs.readFileSync(cookiePath, 'utf-8') : undefined
 });
     yt.session.on('update-credentials', ({ credentials }) => {
@@ -116,7 +120,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
             }
             let videoId = url[1];
             if (!videoId) throw 'Link tidak valid, pastikan linknya benar';
-            url = `https://www.youtube.com/watch?v=${videoId}`;
+            url = `https://youtube.com/watch?v=${videoId}`;
             try {
                 const { basic_info } = await yt.music.getInfo(videoId);
                 let caption = `${basic_info.title}`;
@@ -125,6 +129,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 else
                     caption += `\nDurasi: ${formatDuration(basic_info.duration)}`;
                 await conn.sendMessage(m.from, {text: `Berhasil Menemukan *${basic_info.title}*,\nSedang mendownload...`, edit: key });
+                /*
                 const stream = await yt.download(`${videoId}`, {
                     type: 'audio',
                     quality: 'best',
@@ -147,22 +152,31 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                     .on('data', chunk => chunks.push(chunk));
                 });
                 const mp3Buffer = Buffer.concat(chunks);
+                */
+                const mp3Buffer = await ytdlp.stream(url, { cookies: (new URL('../../.ytdlp-cookies.txt', import.meta.url)).pathname,filter: 'audioonly', type: 'mp3' }).toBuffer();
                 await conn.sendMessage(m.from, {text: `Mengirim...`, edit: key });
+                /*
                 await conn.sendMessage(m.from, { 
                 audio: mp3Buffer, 
-                mimetype: 'audio/mpeg', fileName: `${basic_info.title}.mp3`, contextInfo: {
+                mimetype: 'audio/mpeg', 
+                contextInfo: {
                     externalAdReply: {
                         showAdAttribution: false,
                         renderLargerThumbnail: true,
                         mediaType:  2,
                         mediaUrl: url,
-                        title: caption ,
-                        body: basic_info.author,
+                        title: caption,
+                        body: 'Youtube',
                         sourceUrl: url,
-                        thumbnail: await fetch(basic_info.thumbnail[0].url).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf))
+                        thumbnail: await fetch(`https://i.ytimg.com/vi/${videoId}/0.jpg`).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf))
                     }
                 }
             }, { quoted: m })
+            */
+                await conn.sendMessage(m.from, { 
+                audio: mp3Buffer, 
+                mimetype: 'audio/mpeg'}, { quoted: m })
+                await conn.sendMessage(m.from, {text: caption, edit: key });
             } catch (e) {
                 await conn.sendMessage(m.from, {text: `Gagal`, edit: key });
                 throw e
@@ -227,7 +241,7 @@ ${videoData.secondary_info?.description?.text || ''}`;
                     const videoOutputStream = fs.createWriteStream(videoPath, { flags: 'w', encoding: 'binary' })
                     const audioOutputStream = fs.createWriteStream(audioPath, { flags: 'w', encoding: 'binary' })
 
-                    await Promise.all([
+                    await Promise.allSettled([
                           videoStream.pipeTo(createStreamSink(selectedFormats.videoFormat, videoOutputStream)),
                           audioStream.pipeTo(createStreamSink(selectedFormats.audioFormat, audioOutputStream))
                         ]);
@@ -267,6 +281,8 @@ ${videoData.secondary_info?.description?.text || ''}`;
             }
         break;
         case 'yts':
+            let po = await generatePoToken('MI4I7v-0tnc')
+            throw po
             let res = await yt.search(text, {
 
             })
@@ -419,7 +435,7 @@ function createStreamSink(format, outputStream) {
 async function createSabrStream(videoId, options) {
   let opt = options || {};
   const innertube = yt;//await Innertube.create({ cache: new UniversalCache(true) });
-  const webPoTokenResult = await generateWebPoToken(videoId);
+  const webPoTokenResult = await generatePoToken(videoId);
 
   // Get video metadata.
   const playerResponse = await makePlayerRequest(innertube, videoId);
@@ -450,7 +466,7 @@ async function createSabrStream(videoId, options) {
     formats: sabrFormats,
     serverAbrStreamingUrl,
     videoPlaybackUstreamerConfig,
-    poToken: webPoTokenResult.poToken,
+    poToken: webPoTokenResult,
     clientInfo: {
       clientName: parseInt(Constants.CLIENT_NAME_IDS[innertube.session.context.client.clientName]),
       clientVersion: innertube.session.context.client.clientVersion
@@ -530,4 +546,74 @@ async function generateWebPoToken(contentBinding) {
     placeholderPoToken,
     poToken: poTokenResult.poToken,
   };
+}
+
+
+export async function generatePoToken(videoId) {
+    const userAgent = USER_AGENT;
+    // @NOTE: Session cache is disabled so we can get a fresh visitor data string.
+    const innertube = yt//await Innertube.create({ user_agent: userAgent, enable_session_cache: false });
+    const visitorData = innertube.session.context.client.visitorData || '';
+
+    const dom = new JSDOM('<!DOCTYPE html><html lang="en"><head><title></title></head><body></body></html>', {
+        url: 'https://www.youtube.com/',
+        referrer: 'https://www.youtube.com/',
+        userAgent
+    });
+
+    Object.assign(globalThis, {
+        window: dom.window,
+        document: dom.window.document,
+        location: dom.window.location,
+        origin: dom.window.origin
+    });
+
+    if (!Reflect.has(globalThis, 'navigator')) {
+        Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator });
+    }
+
+    const challengeResponse = await innertube.getAttestationChallenge('ENGAGEMENT_TYPE_UNBOUND');
+    if (!challengeResponse.bg_challenge)
+        throw new Error('Could not get challenge');
+
+    const interpreterUrl = challengeResponse.bg_challenge.interpreter_url.private_do_not_access_or_else_trusted_resource_url_wrapped_value;
+    const bgScriptResponse = await fetch(`https:${interpreterUrl}`);
+    const interpreterJavascript = await bgScriptResponse.text();
+
+    if (interpreterJavascript) {
+        new Function(interpreterJavascript)();
+    } else throw new Error('Could not load VM');
+
+    const botguard = await BG.BotGuardClient.create({
+        program: challengeResponse.bg_challenge.program,
+        globalName: challengeResponse.bg_challenge.global_name,
+        globalObj: globalThis
+    });
+
+    const webPoSignalOutput = [];
+    const botguardResponse = await botguard.snapshot({ webPoSignalOutput });
+    const requestKey = 'O43z0dpjhgX20SCx4KAo';
+
+    const integrityTokenResponse = await fetch(buildURL('GenerateIT', true), {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json+protobuf',
+            'x-goog-api-key': GOOG_API_KEY,
+            'x-user-agent': 'grpc-web-javascript/0.1',
+            'user-agent': userAgent
+        },
+        body: JSON.stringify([ requestKey, botguardResponse ])
+    });
+
+    const response = await integrityTokenResponse.json();
+
+    if (typeof response[0] !== 'string')
+        throw new Error('Could not get integrity token');
+
+    const integrityTokenBasedMinter = await BG.WebPoMinter.create({ integrityToken: response[0] }, webPoSignalOutput);
+
+    const contentPoToken = await integrityTokenBasedMinter.mintAsWebsafeString(videoId);
+    const sessionPoToken = await integrityTokenBasedMinter.mintAsWebsafeString(visitorData);
+
+    return contentPoToken;
 }

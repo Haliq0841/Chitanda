@@ -208,11 +208,11 @@ export default class CommandHandler {
                     isBotAdmin: m.isBotAdmin,
                     __dirname
                 }
+                if (!isPrems)
+                        m.limit = m.limit || plugin.limit || false
                 try {
                     m.plugin = pluginName
                     await plugin.call(sock, m, extra)
-                    if (!isPrems)
-                        m.limit = m.limit || plugin.limit || false
                 } catch (error) {
                     m.error = error
                     m.reply(util.format(error))
@@ -267,7 +267,7 @@ export default class CommandHandler {
             }
         }
         db.write()
-        let print = `💎 ${color.bgYellow(color.whiteBright(m.type))}\n📪 ${color.bgMagenta(color.yellow(m.sender))}\n📤 ${color.bgGreen(m.pushName)} \n💬 ${color.bgRed(color.whiteBright(m.body.trim()))}\n`
+        let print = `\n\n💎 ${color.bgYellow(color.whiteBright(m.type))}\n📪 ${color.bgMagenta(color.yellow(m.sender))}\n📤 ${color.bgGreen(m.pushName)} \n💬 ${color.bgRed(color.whiteBright(m.body.trim()))}\n`
         if (m.isGroup) print += `👥 ${color.bgBlue(color.whiteBright(db.data.groupMetadata[m.from].subject))}\n`
         if (m.plugin) print += `🔖 ${color.bgCyan(color.whiteBright(m.plugin))}\n`
         
