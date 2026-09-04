@@ -255,9 +255,9 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
     // Kirim Balik Hasil Media
     if (isVideo) {
-      await conn.sendMessage(m.chat, { video: { url: resultUrl }, caption: "✨ *Wink Video HD Berhasil diproses!*" }, { quoted: m });
+      await conn.message.send(m.chat, { type: 'video', media: resultUrl, mimetype: 'video/mp4', caption: "✨ *Wink Video HD Berhasil diproses!*" }, { quote: m });
     } else {
-      await conn.sendMessage(m.chat, { image: { url: resultUrl }, caption: `✨ *Wink Foto HD Berhasil diproses (Internal Scale: ${multiplier}x)!*` }, { quoted: m });
+      await conn.message.send(m.chat, { type: 'image', media: resultUrl, mimetype: 'image/jpeg', caption: `✨ *Wink Foto HD Berhasil diproses (Internal Scale: ${multiplier}x)!*` }, { quote: m });
     }
 
   } catch (err) {

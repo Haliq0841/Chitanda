@@ -1,44 +1,70 @@
 const handler = async (m, { conn, args, usedPrefix, thisClass, db, command }) => {
     let tags = {}
+    const user = db.getUser?.(m.sender) || db.data.users[m.sender] || {}
     const defaultMenu = {
       before: 'Berikut adalah daftar menu yang tersedia:',
-      header: '\`%category\`:',
+      header: '%category:',
       body: '%cmd %islimit %isPremium',
       footer: '',
-      after: 'Sisa Limit kamu saat ini:' + db.data.users[m.sender].limit
+      after: 'Sisa Limit kamu saat ini: ' + Number(user.limit || 0)
     }
-    let help = Object.values(thisClass.plugins).filter(plugin => !plugin.disabled).map(plugin => {
-      return {
-        help: Array.isArray(plugin.tags) ? plugin.help : [plugin.help],
-        tags: Array.isArray(plugin.tags) ? plugin.tags : [plugin.tags],
-        prefix: 'customPrefix' in plugin,
-        limit: plugin.limit,
-        premium: plugin.premium,
-        enabled: !plugin.disabled,
+
+    const pluginList = Array.isArray(thisClass?.plugins)
+      ? thisClass.plugins
+      : thisClass?.plugins instanceof Map
+        ? [...thisClass.plugins.values()]
+        : Object.values(thisClass?.plugins || {})
+
+    let help = pluginList
+      .filter(Boolean)
+      .filter(plugin => !plugin.disabled)
+      .map(plugin => {
+        const rawHelp = Array.isArray(plugin.help) ? plugin.help : [plugin.help].filter(Boolean)
+        const rawTags = Array.isArray(plugin.tags) ? plugin.tags : [plugin.tags].filter(Boolean)
+
+        return {
+          help: rawHelp.length ? rawHelp : [''],
+          tags: rawTags.length ? rawTags : ['main'],
+          prefix: 'customPrefix' in plugin,
+          limit: !!plugin.limit,
+          premium: !!plugin.premium,
+          enabled: !plugin.disabled,
+        }
+      })
+
+    for (let plugin of help) {
+      if (!plugin || !Array.isArray(plugin.tags)) continue
+      for (let tag of plugin.tags) {
+        if (!tag) continue
+        tags[tag] = tag
       }
-    })
-    for (let plugin of help)
-      if (plugin && 'tags' in plugin)
-        for (let tag of plugin.tags)
-          if (!(tag in tags) && tag) tags[tag] = tag
+    }
+
     let _text = [
       defaultMenu.before,
       ...Object.keys(tags).map(tag => {
-        return defaultMenu.header.replace(/%category/g, tags[tag]) + '\n' + [
-          ...help.filter(menu => menu.tags && menu.tags.includes(tag) && menu.help).map(menu => {
-            return menu.help.map(help => {
-              return defaultMenu.body.replace(/%cmd/g, menu.prefix ? help : usedPrefix + help)
-                .replace(/%islimit/g, menu.limit ? 'Ⓛ' : '')
-                .replace(/%isPremium/g, menu.premium ? '℗' : '')
-                .trim()
-            }).join('\n')
-          }),
+        const categoryItems = help.filter(menu => menu.tags && menu.tags.includes(tag) && menu.help.some(Boolean))
+        const lines = categoryItems.flatMap(menu => {
+          return menu.help.map(helpText => {
+            const cmd = (menu.prefix ? helpText : (usedPrefix || '.') + helpText).trim()
+            return defaultMenu.body
+              .replace(/%cmd/g, cmd)
+              .replace(/%islimit/g, menu.limit ? 'Ⓛ' : '')
+              .replace(/%isPremium/g, menu.premium ? '℗' : '')
+              .trim()
+          })
+        })
+
+        return [
+          defaultMenu.header.replace(/%category/g, tags[tag]),
+          ...lines,
           defaultMenu.footer
         ].join('\n')
       }),
       defaultMenu.after
     ].join('\n')
-    m.reply(_text)
+
+    await m.reply(_text)
 };
 
 handler.help = ['menu'];

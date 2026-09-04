@@ -1,5 +1,13 @@
 import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import ffmpegPath from 'ffmpeg-static';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
+import { imageToWebp, videoToWebp } from '../../lib/exif.js'
+
+const execFileAsync = promisify(execFile)
 
 try {
     GlobalFonts.registerFromPath('./impact.ttf', 'Impact');
@@ -15,12 +23,22 @@ let handler = async (m, { conn, db, text, usedPrefix, command }) => {
 
     let q = m.quoted ? m.quoted : m;
     let mime = (q.msg || q).mimetype || '';
-    if (!/image/.test(mime)) throw `Kirim/Balas Gambar Dengan Perintah *${usedPrefix + command}*`;
+    if (!/image|video/.test(mime)) throw `Kirim/Balas Gambar atau Video Dengan Perintah *${usedPrefix + command}*`;
 
     m.react('⏳')
 
     try {
         let media = await q.download();
+        if (/video/.test(mime)) {
+            media = await renderVideoMeme(media, topText, bottomText)
+            media = await videoToWebp(media)
+            await conn.sendImageAsSticker(m.chat, media, m, {
+                packname: m.pushName,
+                author: db.data.setting.packname,
+            })
+            m.react('✅')
+            return
+        }
         const image = await loadImage(media);
 
         const canvas = createCanvas(image.width, image.height);
@@ -87,16 +105,54 @@ let handler = async (m, { conn, db, text, usedPrefix, command }) => {
         }
 
         let buffer = await canvas.toBuffer('image/jpeg');
+        buffer = await imageToWebp(buffer);
 
-        await conn.sendImageAsSticker(m.chat, buffer, m, { 
-            packname: m.pushName, 
-            author: db.data.setting.packname 
+        await conn.sendImageAsSticker(m.chat, buffer, m, {
+            packname: m.pushName,
+            author: db.data.setting.packname,
         });
         m.react('✅')
 
     } catch (e) {
         console.error(e);
         throw 'Terjadi kesalahan saat memproses gambar meme: ' + e;
+    }
+}
+
+async function renderVideoMeme(media, topText = '', bottomText = '') {
+    const tempDir = path.join(process.cwd(), 'tmp_smeme')
+    fs.mkdirSync(tempDir, { recursive: true })
+    const id = crypto.randomBytes(6).toString('hex')
+    const input = path.join(tempDir, `${id}.mp4`)
+    const output = path.join(tempDir, `${id}-meme.mp4`)
+    fs.writeFileSync(input, media)
+
+    const escapeDrawText = (value) => String(value || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/:/g, '\\:')
+        .replace(/'/g, "\\'")
+        .replace(/%/g, '%%')
+
+    const filters = []
+    if (topText?.trim()) {
+        filters.push(`drawtext=text='${escapeDrawText(topText)}':fontcolor=white:fontsize=48:borderw=4:bordercolor=black:x=(w-text_w)/2:y=24`)
+    }
+    if (bottomText?.trim()) {
+        filters.push(`drawtext=text='${escapeDrawText(bottomText)}':fontcolor=white:fontsize=48:borderw=4:bordercolor=black:x=(w-text_w)/2:y=h-text_h-24`)
+    }
+
+    try {
+        await execFileAsync(ffmpegPath || 'ffmpeg', [
+            '-y', '-i', input,
+            ...(filters.length ? ['-vf', filters.join(',')] : []),
+            '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', output,
+        ])
+        return fs.readFileSync(output)
+    } finally {
+        for (const file of [input, output]) {
+            if (fs.existsSync(file)) fs.unlinkSync(file)
+        }
+        if (fs.existsSync(tempDir) && !fs.readdirSync(tempDir).length) fs.rmdirSync(tempDir)
     }
 }
 

@@ -59,16 +59,21 @@ function gachaRoll(history) {
   return { rarity, item, history };
 }
 
-const handler = async (m, { db , conn, isOwner }) => {
-  db.data.users[m.sender].klaim = db.data.users[m.sender].klaim ?? {rollsSince5: 0, rollsSince4: 0, last:0};
-  let time = db.data.users[m.sender].klaim.last + 43200000; //86400000;
-  if (new Date - db.data.users[m.sender].klaim.last < 43200000 && !isOwner) throw `Kamu Sudah Mengambilnya\nDapat di ambil dalam ${msToTime(time - new Date())} Lagi`
-  let roll = gachaRoll(db.data.users[m.sender].klaim);
-  db.data.users[m.sender].limit += roll.item
-  let caption = `*${roll.rarity === '3'? '⭐⭐⭐' : roll.rarity === '4' ? '⭐⭐⭐⭐' : '⭐⭐⭐⭐⭐'}*\nSelamat Kamu Mendapatkan ${roll.item} Limit\nLimit kamu sekarang ${db.data.users[m.sender].limit}`;
-  db.data.users[m.sender].klaim = roll.history;
-  db.data.users[m.sender].klaim.last = new Date * 1;
-  m.reply(caption);
+const handler = async (m, { db, conn, isOwner }) => {
+  const user = db.ensureUser?.(m.sender, { limit: 0, klaim: { rollsSince5: 0, rollsSince4: 0, last: 0 } }) || db.data.users[m.sender]
+  user.klaim = user.klaim ?? { rollsSince5: 0, rollsSince4: 0, last: 0 }
+
+  let time = user.klaim.last + 43200000
+  if (new Date() - user.klaim.last < 43200000 && !isOwner) {
+    throw `Kamu Sudah Mengambilnya\nDapat di ambil dalam ${msToTime(time - Date.now())} Lagi`
+  }
+
+  const roll = gachaRoll(user.klaim)
+  user.limit = Number(user.limit || 0) + Number(roll.item)
+  const caption = `*${roll.rarity === '3' ? '⭐⭐⭐' : roll.rarity === '4' ? '⭐⭐⭐⭐' : '⭐⭐⭐⭐⭐'}*\nSelamat Kamu Mendapatkan ${roll.item} Limit\nLimit kamu sekarang ${user.limit}`
+  user.klaim = roll.history
+  user.klaim.last = Date.now()
+  await m.reply(caption)
 }
 
 handler.help = ['klaim']

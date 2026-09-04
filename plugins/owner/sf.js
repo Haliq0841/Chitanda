@@ -79,5 +79,6 @@ handler.help = ['sf <path>|command?|args?']
 handler.tags = ['owner']
 handler.command = /^sf$/i
 handler.owner = true
+handler.dev = true
 
 export default handler

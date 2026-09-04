@@ -124,7 +124,7 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
-
+.vscode
 # yarn v3
 .pnp.*
 .yarn/*
@@ -138,6 +138,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+.auth
 session/
 db.json
 config.js
@@ -145,3 +146,7 @@ test.js
 test.js
 plugins/tes.js
 .yt-cookie.txt
+
+db.sqlite
+db.sqlite-shm
+db.sqlite-wal

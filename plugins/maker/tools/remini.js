@@ -2,6 +2,22 @@ import FormData from "form-data";
 import { Jimp } from "jimp";
 import axios from "axios";
 
+const pickResultUrl = (payload) => {
+  if (!payload) return null
+  if (typeof payload === 'string') return payload
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const nested = pickResultUrl(item)
+      if (nested) return nested
+    }
+    return null
+  }
+  if (typeof payload === 'object') {
+    return pickResultUrl(payload.url || payload.downloadUrl || payload.image || payload.image_url || payload.output || payload.bgRemoved || payload.data || payload.result)
+  }
+  return null
+}
+
 const handler = async (m, { conn, usedPrefix, command, args }) => {
   const q = m.quoted ? m.quoted : m;
   const mime = (q.msg || q).mimetype || q.mediaType || "";
@@ -14,7 +30,6 @@ const handler = async (m, { conn, usedPrefix, command, args }) => {
     throw `Mime ${mime} tidak didukung! Pastikan mengirim gambar.`;
   }
 
-  // Menentukan ukuran upscale (default: 2)
   let size = 2;
   if (args[0]) {
     if (!/^(2|4|6|8|16)$/.test(args[0].toString())) {
@@ -23,22 +38,23 @@ const handler = async (m, { conn, usedPrefix, command, args }) => {
     size = parseInt(args[0]);
   }
 
-  // Cek mode anime dari argumen tambahan (opsional: contoh .hd 4 anime)
   const isAnime = args[1]?.toLowerCase() === "anime" || args[0]?.toLowerCase() === "anime";
 
   await m.reply(`Sedang memproses gambar (Upscale: ${size}x)... Mohon tunggu sebentar.`);
 
-  const mediaBuffer = await q.download?.() || await conn.downloadMediaMessage(q);
+  const mediaBuffer = await q.download?.() || await conn.downloadMediaMessage?.(q) || await conn.downloadMediaMessage?.(q, 'remini')
   if (!mediaBuffer) throw new Error("Gagal mengunduh gambar dari WhatsApp.");
 
-  // Eksekusi API Upscalepics
   const resultUrl = await upscale(mediaBuffer, size, isAnime);
+  const response = await fetch(resultUrl);
+  if (!response.ok) throw new Error('Gagal mengunduh hasil proses image dari server.');
+  const outputBuffer = Buffer.from(await response.arrayBuffer());
 
-  // Kirim hasil gambar ke room chat
-  await conn.sendMessage(m.chat, {
-    image: { url: resultUrl },
-    caption: `✨ *Berhasil dijernihkan!*\n📐 *Ukuran Scale:* ${size}x`
-  }, { quoted: m });
+  await conn.sendMedia(m.chat, outputBuffer, m, {
+    mimetype: 'image/png',
+    caption: `✨ *Berhasil dijernihkan!*\n📐 *Ukuran Scale:* ${size}x`,
+    asSticker: false,
+  });
 };
 
 handler.help = ['remini <size>', 'hd2 <size>', 'jernih2 <size>'];
@@ -50,7 +66,6 @@ handler.disable = false;
 
 export default handler;
 
-// --- FUNGSI BASE UPSCALE (UPSCALEPICS ENGINE) ---
 async function upscale(buffer, size = 2, anime = false) {
   return new Promise((resolve, reject) => {
     if (!buffer || !Buffer.isBuffer(buffer)) return reject(new Error("Input buffer tidak valid!"));
@@ -81,14 +96,15 @@ async function upscale(buffer, size = 2, anime = false) {
             ...form.getHeaders(),
             origin: "https://upscalepics.com",
             referer: "https://upscalepics.com"
-          }
+          },
+          responseType: 'json'
         })
         .then(res => {
-          const data = res.data;
-          if (data.error || !data.bgRemoved) {
+          const url = pickResultUrl(res?.data)
+          if (!url) {
             return reject(new Error("Gagal memproses gambar dari API Upscalepics!"));
           }
-          resolve(data.bgRemoved);
+          resolve(url)
         })
         .catch(reject);
       })

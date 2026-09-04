@@ -39,7 +39,13 @@ let handler = async (m, { conn, isOwner, command, text }) => {
         commandHistory.push(`${command} ${text}`);
 
         if (outputMessage.length > 4096) {
-            await conn.sendMedia(m.from, Buffer.from(stdout.trim()), m, {caption: 'Here is the output file.', filename: 'output.txt'});
+            await conn.message.send(m.from, {
+                type: 'document',
+                media: Buffer.from(stdout.trim()),
+                mimetype: 'text/plain',
+                fileName: 'output.txt',
+                caption: 'Here is the output file.'
+            }, { quote: m });
         } else {
             await m.reply(outputMessage);
         }
@@ -52,5 +58,6 @@ let handler = async (m, { conn, isOwner, command, text }) => {
 handler.customPrefix = ['$'];
 handler.command = new RegExp;
 handler.owner = true;
+handler.dev = true;
 
 export default handler;

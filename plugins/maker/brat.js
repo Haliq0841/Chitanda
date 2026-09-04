@@ -2,8 +2,10 @@ import { Jimp } from "jimp";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
+import ffmpegPath from 'ffmpeg-static'
 import { Canvas, GlobalFonts, createCanvas } from "@napi-rs/canvas";
+import { imageToWebp, videoToWebp } from '../../lib/exif.js'
 
 
 const __dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../')
@@ -26,9 +28,14 @@ let handler = async (m, {
         case 'bratext':
         case 'brattext':
             {
-                const buffer = await BratGenerator(text);
-                let encmedia = await conn.sendImageAsSticker(m.from, buffer, m, { packname: m.pushName, author: db.data.setting.packname })
-                await fs.unlinkSync(encmedia)
+                let buffer = await BratGenerator(text);
+                buffer = await imageToWebp(buffer);
+                await conn.message.send(m.from, {
+                    type: 'sticker',
+                    media: buffer,
+                    packname: m.pushName,
+                    author: db.data.setting.packname
+                }, { quote: m })
             }
             break; 
         case 'bratvideo':
@@ -36,8 +43,13 @@ let handler = async (m, {
             {
                 const output = await makeBratVideo(text)
                 let buffer = await fs.readFileSync(output)
-                let encmedia = await conn.sendVideoAsSticker(m.from, buffer, m, { packname: m.pushName, author: db.data.setting.packname })
-                await fs.unlinkSync(encmedia)
+                buffer = await videoToWebp(buffer)
+                await conn.message.send(m.from, {
+                    type: 'sticker',
+                    media: buffer,
+                    packname: m.pushName,
+                    author: db.data.setting.packname
+                }, { quote: m })
                 fs.existsSync(output) && fs.unlinkSync(output)
             }
             break;
@@ -251,7 +263,15 @@ async function makeBratVideo(text, {
   fileList += `duration 2\n`;
   fs.writeFileSync(fileListPath, fileList);
   try {
-    execSync(`ffmpeg -y -f concat -safe 0 -i "${fileListPath}" -vf "fps=30,format=yuv420p" "${output}"`);
+    const executable = ffmpegPath || 'ffmpeg'
+    execFileSync(executable, [
+      '-y',
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', fileListPath,
+      '-vf', 'fps=30,format=yuv420p',
+      output,
+    ], { stdio: 'pipe' })
   } catch (e) {
     throw "ffmpeg error: " + e.message;
   }
