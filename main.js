@@ -402,6 +402,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     store,
     sessionId: activeSessionId,
     logger: new ConsoleLogger(String(setting.logLevel || 'error').toLowerCase() || 'error'),
+    mediaTimeoutMs: Number(setting.mediaTimeoutMs) > 0 ? Number(setting.mediaTimeoutMs) : 120000,
     markOnlineOnConnect: !sessionConfig.type === 'self',
   })
 

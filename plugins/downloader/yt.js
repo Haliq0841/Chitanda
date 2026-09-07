@@ -2,18 +2,27 @@ import { YtDlp } from 'ytdlp-nodejs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import ffmpegPath from 'ffmpeg-static';
 
 const ytdlp = new YtDlp();
 const cookiePath = fileURLToPath(new URL('../../.ytdlp-cookies.txt', import.meta.url));
 const tmpDir = path.join(process.cwd(), 'temp');
+const ytdlpOptions = ffmpegPath ? { ffmpegLocation: ffmpegPath } : {};
 
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
 const YT_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
 function extractVideoId(text) {
-    const match = text?.match(YT_REGEX);
+    const value = String(text || '').trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(value)) return value;
+    const match = value.match(YT_REGEX);
     return match ? match[1] : null;
+}
+
+function resolveSearchVideoId(result) {
+    if (!result || typeof result !== 'object') return null;
+    return extractVideoId(result.id) || extractVideoId(result.webpage_url) || extractVideoId(result.url);
 }
 
 function getCookies() {
@@ -21,17 +30,35 @@ function getCookies() {
 }
 
 async function getVideoInfo(videoId) {
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(String(videoId || ''))) {
+        throw new Error('ID video YouTube tidak valid atau hasil pencarian tidak lengkap.');
+    }
     const url = `https://www.youtube.com/watch?v=${videoId}`;
     return await ytdlp.getInfo(url, { cookies: getCookies() });
 }
 
 async function searchVideos(query, limit = 10) {
-    const results = await ytdlp.exec(`ytsearch${limit}:${query}`, {
+    const result = await ytdlp.exec(`ytsearch${limit}:${query}`, {
+        ...ytdlpOptions,
         cookies: getCookies(),
         flatPlaylist: true,
         dumpSingleJson: true
     });
-    return results?.entries || (Array.isArray(results) ? results : [results]);
+    if (Array.isArray(result)) return result;
+    if (Array.isArray(result?.entries)) return result.entries;
+
+    const output = typeof result?.output === 'string' ? result.output : result?.stdout;
+    if (typeof output === 'string') {
+        try {
+            const parsed = JSON.parse(output);
+            if (Array.isArray(parsed)) return parsed;
+            if (Array.isArray(parsed?.entries)) return parsed.entries;
+        } catch {
+            // ytdlp-nodejs can return non-JSON diagnostics in output.
+        }
+    }
+
+    return [];
 }
 
 function formatDuration(seconds) {
@@ -59,6 +86,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
         case 'ytmusik':
         case 'play': {
             let status
+            let audioPath
             let videoId = extractVideoId(query);
             let info = null;
 
@@ -67,7 +95,8 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 status = await m.reply('Tunggu kak, sedang menelusuri...');
                 const results = await searchVideos(query, 5);
                 if (!results || results.length === 0) throw 'Tidak ditemukan hasil untuk: ' + query;
-                videoId = results[0].id;
+                videoId = resolveSearchVideoId(results[0]);
+                if (!videoId) throw new Error('Hasil pencarian YouTube tidak memiliki ID video yang valid.');
                 info = results[0];
             } else {
                 status = await m.reply('Tunggu kak, sedang mengambil data...');
@@ -87,18 +116,22 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 await status.edit(`Berhasil Menemukan *${title}*,\nSedang mendownload...`);
 
                 const url = `https://www.youtube.com/watch?v=${videoId}`;
-                const mp3Buffer = await ytdlp.stream(url, {
+                audioPath = path.join(tmpDir, `${videoId}_${Date.now()}.m4a`);
+                await ytdlp.download(url, {
+                    ...ytdlpOptions,
                     cookies: getCookies(),
-                    filter: 'audioonly',
-                    type: 'mp3'
-                }).toBuffer();
+                    format: 'bestaudio[ext=m4a]/bestaudio',
+                    output: audioPath,
+                });
 
                 await status.edit('Mengirim...');
-                await conn.sendMedia(m.from, mp3Buffer, m, { mimetype: 'audio/mpeg' });
+                await conn.sendMedia(m.from, audioPath, m, { mimetype: 'audio/mp4', fileName: `${title}.m4a` });
                 await status.edit(caption);
             } catch (e) {
                 if (status) await status.edit(`Gagal: ${e.message}`);
                 throw e;
+            } finally {
+                if (audioPath) await fs.promises.rm(audioPath, { force: true }).catch(() => {});
             }
             break;
         }
@@ -117,7 +150,8 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 status = await m.reply('Tunggu kak, sedang menelusuri...');
                 const results = await searchVideos(searchQuery, 5);
                 if (!results || results.length === 0) throw 'Tidak ditemukan hasil untuk: ' + searchQuery;
-                videoId = results[0].id;
+                videoId = resolveSearchVideoId(results[0]);
+                if (!videoId) throw new Error('Hasil pencarian YouTube tidak memiliki ID video yang valid.');
                 info = results[0];
             } else {
                 status = await m.reply('Tunggu kak, sedang mengambil data...');
@@ -151,6 +185,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 const outputPath = path.join(tmpDir, `${videoId}_${Date.now()}.mp4`);
 
                 await ytdlp.download(url, {
+                    ...ytdlpOptions,
                     cookies: getCookies(),
                     format: `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`,
                     output: outputPath,
@@ -208,7 +243,8 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 status = await m.reply('Tunggu kak, sedang menelusuri...');
                 const results = await searchVideos(query, 1);
                 if (!results || results.length === 0) throw 'Tidak ditemukan hasil untuk: ' + query;
-                videoId = results[0].id;
+                videoId = resolveSearchVideoId(results[0]);
+                if (!videoId) throw new Error('Hasil pencarian YouTube tidak memiliki ID video yang valid.');
             }
 
             try {

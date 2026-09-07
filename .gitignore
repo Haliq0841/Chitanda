@@ -145,7 +145,7 @@ config.js
 test.js
 test.js
 plugins/tes.js
-.yt-cookie.txt
+.ytdlp-cookies.txt
 
 db.sqlite
 db.sqlite-shm
