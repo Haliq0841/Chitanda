@@ -12,7 +12,7 @@ var handler = async (m, { conn, args, usedPrefix, command }) => {
     if (!args || !args[0]) throw `Example:\n${usedPrefix + command} https://www.tiktok.com/@mewmeo062_/video/7553572796467596562`
 
     const url = String(args[0]).trim()
-    await conn.message.send(m.from, { type: 'text', text: 'Tunggu sebentar kak, sedang mengambil data...' }, { quote: m })
+    const status = await m.reply('Tunggu sebentar kak, sedang mengambil data...')
 
     try {
         const res = await tiktok.Downloader(url, { version: 'v1' })
@@ -25,7 +25,7 @@ var handler = async (m, { conn, args, usedPrefix, command }) => {
 
         const caption = result?.desc || `ini kak ${type}nya`
 
-        await conn.message.send(m.from, { type: 'text', text: `Mengirim ${type}...` }, { quote: m })
+        await status.edit(`Mengirim ${type}...`)
 
         if (type === 'video') {
             const videoUrl = Array.isArray(result?.video?.playAddr)
@@ -71,24 +71,11 @@ var handler = async (m, { conn, args, usedPrefix, command }) => {
                 }
             }
 
-            await conn.message.send(m.from, {
-                type: 'audio',
-                media: String(musicUrl),
+            await conn.sendMedia(m.from, String(musicUrl), m, {
                 mimetype: 'audio/mp4',
                 fileName: String(musicTitle),
-                contextInfo: {
-                    externalAdReply: {
-                        showAdAttribution: false,
-                        renderLargerThumbnail: true,
-                        mediaType: 2,
-                        mediaUrl: 'https://m.youtube.com/results?sp=mAEA&search_query=' + encodeURIComponent(musicTitle.replace(/original sound/i, 'suara asli')),
-                        title: musicTitle.replace(/original sound/i, 'suara asli'),
-                        body: musicAuthor,
-                        sourceUrl: 'https://m.youtube.com/results?sp=mAEA&search_query=' + encodeURIComponent(musicTitle.replace(/original sound/i, 'suara asli')),
-                        thumbnail
-                    }
-                }
-            }, { quote: m })
+                caption: `${musicTitle} - ${musicAuthor}`,
+            })
         }
     } catch (e) {
         console.error('[ERROR] TikTok downloader failed:', e)

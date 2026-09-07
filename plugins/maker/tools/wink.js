@@ -213,7 +213,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
   const filename = isVideo ? "video.mp4" : "image.jpg";
   const mediaLabel = isVideo ? "Video" : `Foto [Mode: ${multiplier >= 2 ? 'Ultra HD ' + multiplier + 'x' : 'Standard'}]`;
 
-  await m.reply(`Sedang memproses ${isVideo ? 'Video' : 'Foto'} via Wink AI HD, mohon tunggu...`);
+  const status = await m.reply(`Sedang memproses ${isVideo ? 'Video' : 'Foto'} via Wink AI HD, mohon tunggu...`);
 
   try {
     let mediaBuffer = await q.download?.() || await conn.downloadMediaMessage(q);
@@ -253,11 +253,12 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     // Polling antrean
     const resultUrl = await waitResult(firstMsgId, isVideo ? 150 : 80, isVideo ? 4000 : 3000);
 
+    await status.edit('Mengirim hasil...');
     // Kirim Balik Hasil Media
     if (isVideo) {
-      await conn.message.send(m.chat, { type: 'video', media: resultUrl, mimetype: 'video/mp4', caption: "✨ *Wink Video HD Berhasil diproses!*" }, { quote: m });
+      await conn.sendMedia(m.chat, resultUrl, m, { mimetype: 'video/mp4', caption: "✨ *Wink Video HD Berhasil diproses!*" });
     } else {
-      await conn.message.send(m.chat, { type: 'image', media: resultUrl, mimetype: 'image/jpeg', caption: `✨ *Wink Foto HD Berhasil diproses (Internal Scale: ${multiplier}x)!*` }, { quote: m });
+      await conn.sendMedia(m.chat, resultUrl, m, { mimetype: 'image/jpeg', caption: `✨ *Wink Foto HD Berhasil diproses (Internal Scale: ${multiplier}x)!*` });
     }
 
   } catch (err) {

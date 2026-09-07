@@ -47,7 +47,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
     if (!args || !args[0]) throw `Example:\n${usedPrefix + command} https://www.instagram.com/reel/CZQsQveo-g8/`
 
     const url = String(args[0]).trim()
-    await conn.message.send(m.from, { type: 'text', text: 'Tunggu sebentar kak, sedang mengambil data...' }, { quote: m })
+    const status = await m.reply('Tunggu sebentar kak, sedang mengambil data...')
 
     try {
         const base_url = 'https://www.instantdp.com/api/instagram'
@@ -65,7 +65,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         const mediaList = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data?.result) ? res.data.result : []
         if (!mediaList.length) throw new Error('Link Instagram tidak valid atau tidak bisa diunduh saat ini.')
 
-        await conn.message.send(m.from, { type: 'text', text: 'Mengirim...' }, { quote: m })
+        await status.edit('Mengirim...')
         await sendMediaList(conn, m.from, mediaList, m)
         return
     } catch (e) {
@@ -80,7 +80,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             })
 
             const fallbackList = Array.isArray(fallback?.data?.data?.url) ? fallback.data.data.url : [fallback?.data?.data?.url].filter(Boolean)
-            await conn.message.send(m.from, { type: 'text', text: 'Mengirim...' }, { quote: m })
+            await status.edit('Mengirim...')
             await sendMediaList(conn, m.from, fallbackList, m)
             return
         } catch (err) {
@@ -91,12 +91,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             const mediaUrl = pickMediaUrl(response?.data?.message) || pickMediaUrl(response?.data?.data)
             if (!mediaUrl) throw 'Gagal mengunduh media dari Instagram. Coba link lain.'
 
-            await conn.message.send(m.from, {
-                type: /\.(mp4|mov|webm)(\?|$)/i.test(String(mediaUrl)) ? 'video' : 'image',
-                media: String(mediaUrl),
+            await conn.sendMedia(m.from, String(mediaUrl), m, {
                 mimetype: /\.(mp4|mov|webm)(\?|$)/i.test(String(mediaUrl)) ? 'video/mp4' : 'image/jpeg',
                 caption: 'Instagram media'
-            }, { quote: m })
+            })
             return
         }
     }

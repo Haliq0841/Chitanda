@@ -58,18 +58,19 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
         case 'ytmusic':
         case 'ytmusik':
         case 'play': {
+            let status
             let videoId = extractVideoId(query);
             let info = null;
 
             if (!videoId) {
                 if (!args[0]) throw `Masukkan link youtube atau kata kunci pencarian!\nContoh:\n${usedPrefix}${command} judul lagu`;
-                await conn.message.send(m.from, { type: 'text', text: 'Tunggu kak, sedang menelusuri...' }, { quote: m });
+                status = await m.reply('Tunggu kak, sedang menelusuri...');
                 const results = await searchVideos(query, 5);
                 if (!results || results.length === 0) throw 'Tidak ditemukan hasil untuk: ' + query;
                 videoId = results[0].id;
                 info = results[0];
             } else {
-                await conn.message.send(m.from, { type: 'text', text: 'Tunggu kak, sedang mengambil data...' }, { quote: m });
+                status = await m.reply('Tunggu kak, sedang mengambil data...');
             }
 
             try {
@@ -83,7 +84,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 const uploadDate = info.upload_date ? `${info.upload_date.slice(6, 8)}/${info.upload_date.slice(4, 6)}/${info.upload_date.slice(0, 4)}` : '';
                 const caption = `${title}${duration ? `\nDurasi: ${duration}` : ''}${uploadDate ? `\nDiupload: ${uploadDate}` : ''}`;
 
-                await conn.message.send(m.from, { type: 'text', text: `Berhasil Menemukan *${title}*,\nSedang mendownload...` }, { quote: m });
+                await status.edit(`Berhasil Menemukan *${title}*,\nSedang mendownload...`);
 
                 const url = `https://www.youtube.com/watch?v=${videoId}`;
                 const mp3Buffer = await ytdlp.stream(url, {
@@ -92,15 +93,11 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                     type: 'mp3'
                 }).toBuffer();
 
-                await conn.message.send(m.from, { type: 'text', text: `Mengirim...` }, { quote: m });
-                await conn.message.send(m.from, {
-                    type: 'audio',
-                    media: mp3Buffer,
-                    mimetype: 'audio/mpeg'
-                }, { quote: m });
-                await conn.message.send(m.from, { type: 'text', text: caption }, { quote: m });
+                await status.edit('Mengirim...');
+                await conn.sendMedia(m.from, mp3Buffer, m, { mimetype: 'audio/mpeg' });
+                await status.edit(caption);
             } catch (e) {
-                await conn.message.send(m.from, { type: 'text', text: `Gagal: ${e.message}` }, { quote: m });
+                if (status) await status.edit(`Gagal: ${e.message}`);
                 throw e;
             }
             break;
@@ -110,19 +107,20 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
         case 'ytvideo':
         case 'ytv':
         case 'ythd': {
+            let status
             const [searchQuery, resolusi] = query ? query.split('|') : ['', ''];
             let videoId = extractVideoId(searchQuery);
             let info = null;
 
             if (!videoId) {
                 if (!args[0]) throw `Masukkan link youtube atau kata kunci pencarian!\nContoh:\n${usedPrefix}${command} judul|480p\natau\n${usedPrefix}${command} https://youtu.be/xxxxxx|480p`;
-                await conn.message.send(m.from, { type: 'text', text: 'Tunggu kak, sedang menelusuri...' }, { quote: m });
+                status = await m.reply('Tunggu kak, sedang menelusuri...');
                 const results = await searchVideos(searchQuery, 5);
                 if (!results || results.length === 0) throw 'Tidak ditemukan hasil untuk: ' + searchQuery;
                 videoId = results[0].id;
                 info = results[0];
             } else {
-                await conn.message.send(m.from, { type: 'text', text: 'Tunggu kak, sedang mengambil data...' }, { quote: m });
+                status = await m.reply('Tunggu kak, sedang mengambil data...');
             }
 
             try {
@@ -147,7 +145,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                     `*Link:* ${url}\n\n` +
                     `${description}`;
 
-                await conn.message.send(m.from, { type: 'text', text: `Berhasil Menemukan *${title}*,\nSedang mendownload...` }, { quote: m });
+                await status.edit(`Berhasil Menemukan *${title}*,\nSedang mendownload...`);
 
                 const quality = resolusi ? resolusi.replace(/[^0-9]/g, '') : '720';
                 const outputPath = path.join(tmpDir, `${videoId}_${Date.now()}.mp4`);
@@ -161,19 +159,17 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
 
                 const fileSize = (fs.statSync(outputPath).size / (1024 * 1024)).toFixed(2);
 
-                await conn.message.send(m.from, { type: 'text', text: `Berhasil Mengunduh *${title}*\nSize: ${fileSize} MB,\nSedang Mengirim...` }, { quote: m });
+                await status.edit(`Berhasil Mengunduh *${title}*\nSize: ${fileSize} MB,\nSedang Mengirim...`);
 
-                await conn.message.send(m.from, {
-                    type: 'video',
-                    media: outputPath,
+                await conn.sendMedia(m.from, outputPath, m, {
                     mimetype: 'video/mp4',
                     caption: cap,
                     jpegThumbnail: info.thumbnail ? await fetch(info.thumbnail).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf)).catch(() => undefined) : undefined
-                }, { quote: m });
+                });
 
                 fs.unlinkSync(outputPath);
             } catch (e) {
-                await conn.message.send(m.from, { type: 'text', text: `Gagal: ${e.message}` }, { quote: m });
+                if (status) await status.edit(`Gagal: ${e.message}`);
                 throw e;
             }
             break;
@@ -181,7 +177,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
 
         case 'yts': {
             if (!args[0]) throw `Masukkan kata kunci pencarian!\nContoh:\n${usedPrefix}${command} judul lagu`;
-            await conn.message.send(m.from, { type: 'text', text: 'Tunggu kak, sedang menelusuri...' }, { quote: m });
+            const status = await m.reply('Tunggu kak, sedang menelusuri...');
 
             try {
                 const results = await searchVideos(query, 10);
@@ -196,19 +192,20 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 });
                 msg += `\nUntuk download, ketik:\n${usedPrefix}play <link/judul>\n${usedPrefix}ytmp4 <link/judul>`;
 
-                await conn.message.send(m.from, { type: 'text', text: msg }, { quote: m });
+                await status.edit(msg);
             } catch (e) {
-                await conn.message.send(m.from, { type: 'text', text: `Gagal: ${e.message}` }, { quote: m });
+                await status.edit(`Gagal: ${e.message}`);
                 throw e;
             }
             break;
         }
 
         case 'ytinfo': {
+            let status
             let videoId = extractVideoId(query);
             if (!videoId) {
                 if (!args[0]) throw `Masukkan link youtube atau kata kunci pencarian!\nContoh:\n${usedPrefix}${command} https://youtu.be/xxxxxx`;
-                await conn.message.send(m.from, { type: 'text', text: 'Tunggu kak, sedang menelusuri...' }, { quote: m });
+                status = await m.reply('Tunggu kak, sedang menelusuri...');
                 const results = await searchVideos(query, 1);
                 if (!results || results.length === 0) throw 'Tidak ditemukan hasil untuk: ' + query;
                 videoId = results[0].id;
@@ -233,14 +230,13 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                     `*Link:* https://www.youtube.com/watch?v=${videoId}\n\n` +
                     `${description.substring(0, 500)}${description.length > 500 ? '...' : ''}`;
 
-                await conn.message.send(m.from, {
-                    type: 'image',
-                    media: info.thumbnail,
+                if (status) await status.edit('Mengirim informasi...');
+                await conn.sendMedia(m.from, info.thumbnail, m, {
                     caption: msg,
                     mimetype: 'image/jpeg'
-                }, { quote: m });
+                });
             } catch (e) {
-                await conn.message.send(m.from, { type: 'text', text: `Gagal: ${e.message}` }, { quote: m });
+                if (status) await status.edit(`Gagal: ${e.message}`);
                 throw e;
             }
             break;

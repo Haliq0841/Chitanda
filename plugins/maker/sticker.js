@@ -11,24 +11,18 @@ let handler = async (m, { conn, db, text, command, usedPrefix }) => {
 
   if (/image/.test(mime)) {
     let media = await imageToWebp(await q.download())
-    await conn.message.send(m.chat, {
-      type: 'sticker',
-      media,
-      mimetype: 'image/webp',
+    await conn.sendImageAsSticker(m.chat, media, m, {
       packname: finalPackname,
       author: finalAuthor,
-    }, { quote: m.raw })
+    })
   } else if (/video/.test(mime)) {
     if ((q.msg || q).seconds > 7) throw 'Maksimal 6 detik!'
     
     let media = await videoToWebp(await q.download())
-    await conn.message.send(m.chat, {
-      type: 'sticker',
-      media,
-      mimetype: 'image/webp',
+    await conn.sendImageAsSticker(m.chat, media, m, {
       packname: finalPackname,
       author: finalAuthor,
-    }, { quote: m.raw })
+    })
     
   } else {
     throw `Kirim Gambar/Video Dengan Caption ${usedPrefix + command}\nDurasi Video 1-6 Detik`

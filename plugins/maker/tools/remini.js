@@ -40,7 +40,7 @@ const handler = async (m, { conn, usedPrefix, command, args }) => {
 
   const isAnime = args[1]?.toLowerCase() === "anime" || args[0]?.toLowerCase() === "anime";
 
-  await m.reply(`Sedang memproses gambar (Upscale: ${size}x)... Mohon tunggu sebentar.`);
+  const status = await m.reply(`Sedang memproses gambar (Upscale: ${size}x)... Mohon tunggu sebentar.`);
 
   const mediaBuffer = await q.download?.() || await conn.downloadMediaMessage?.(q) || await conn.downloadMediaMessage?.(q, 'remini')
   if (!mediaBuffer) throw new Error("Gagal mengunduh gambar dari WhatsApp.");
@@ -50,6 +50,7 @@ const handler = async (m, { conn, usedPrefix, command, args }) => {
   if (!response.ok) throw new Error('Gagal mengunduh hasil proses image dari server.');
   const outputBuffer = Buffer.from(await response.arrayBuffer());
 
+  await status.edit('Mengirim hasil...')
   await conn.sendMedia(m.chat, outputBuffer, m, {
     mimetype: 'image/png',
     caption: `✨ *Berhasil dijernihkan!*\n📐 *Ukuran Scale:* ${size}x`,

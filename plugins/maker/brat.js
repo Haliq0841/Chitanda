@@ -30,12 +30,10 @@ let handler = async (m, {
             {
                 let buffer = await BratGenerator(text);
                 buffer = await imageToWebp(buffer);
-                await conn.message.send(m.from, {
-                    type: 'sticker',
-                    media: buffer,
-                    packname: m.pushName,
-                    author: db.data.setting.packname
-                }, { quote: m })
+                await conn.sendImageAsSticker(m.from, buffer, m, {
+                  packname: m.pushName,
+                  author: db.data.setting.packname
+                })
             }
             break; 
         case 'bratvideo':
@@ -44,12 +42,10 @@ let handler = async (m, {
                 const output = await makeBratVideo(text)
                 let buffer = await fs.readFileSync(output)
                 buffer = await videoToWebp(buffer)
-                await conn.message.send(m.from, {
-                    type: 'sticker',
-                    media: buffer,
-                    packname: m.pushName,
-                    author: db.data.setting.packname
-                }, { quote: m })
+                await conn.sendImageAsSticker(m.from, buffer, m, {
+                  packname: m.pushName,
+                  author: db.data.setting.packname
+                })
                 fs.existsSync(output) && fs.unlinkSync(output)
             }
             break;

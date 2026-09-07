@@ -14,7 +14,7 @@ let handler = async (m, { conn, isOwner, command, text }) => {
         return;
     }
 
-    await m.reply('Executing...');
+    const status = await m.reply('Executing...');
 
     let o;
     try {
@@ -39,19 +39,17 @@ let handler = async (m, { conn, isOwner, command, text }) => {
         commandHistory.push(`${command} ${text}`);
 
         if (outputMessage.length > 4096) {
-            await conn.message.send(m.from, {
-                type: 'document',
-                media: Buffer.from(stdout.trim()),
+            await conn.sendMedia(m.from, Buffer.from(stdout.trim()), m, {
                 mimetype: 'text/plain',
                 fileName: 'output.txt',
                 caption: 'Here is the output file.'
-            }, { quote: m });
+            });
         } else {
-            await m.reply(outputMessage);
+            await status.edit(outputMessage);
         }
 
         let historyMessage = commandHistory.map((cmd, index) => `${index + 1}. ${cmd}`).join('\n');
-        await m.reply(`Command History:\n${historyMessage}\n\nFor remove history just type $ clearhistory`);
+        await status.edit(`${outputMessage}\n\nCommand History:\n${historyMessage}\n\nFor remove history just type $ clearhistory`);
     }
 };
 

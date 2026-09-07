@@ -1,4 +1,4 @@
-console.log('Starting Zapo-based bot...')
+console.log('📳 Starting Zapo-based bot...')
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -556,6 +556,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
           break
         default:
           console.log(color.yellow('[+] Connection closed. Session kept because the issue is not definitively invalid.'))
+          process.send?.('reset')
       }
     }
 
