@@ -390,7 +390,9 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     store,
     sessionId: activeSessionId,
     logger: new ConsoleLogger(String(setting.logLevel || 'error').toLowerCase() || 'error'),
+    markOnlineOnConnect: !sessionConfig.type === 'self',
   })
+
 
   sock.createSession = async (config = {}) => {
     const requestedId = String(config.session || config.name || '').trim()

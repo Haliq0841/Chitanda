@@ -114,10 +114,10 @@ node index.js --session default
 node index.js --session newnum
 
 # Dengan pairing code manual
-node index.js --session newnum --phone 6281234567890
+node index.js --session nama --phone 6281234567890
 
-# Mode self
-node index.js --session self --phone 6281234567890
+# Mode self 
+node index.js --session nama --self --phone 6281234567890
 
 # Buat session baru interaktif
 node index.js --newsession

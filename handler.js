@@ -163,6 +163,26 @@ export default class CommandHandler {
       m.body = bodyText
       this.executedCommands.add(m.id)
 
+      const timestamp = new Date().toLocaleString('id-ID', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })
+
+      console.log(
+        `\n${color.yellow('📨')} ${color.cyan(`[${m.session || 'unknown'}]`)} ${color.green(timestamp)}`
+      )
+      console.log(
+        `${color.magenta('👤')} ${color.green(m.sender)}`
+      )
+      console.log(
+        `${color.blue('💬')} ${color.green(m.from)}: ${bodyText.slice(0, 200)}${bodyText.length > 200 ? '...' : ''}\n`
+      )
+
       for (const fn of this.functions) {
         try {
           await fn(m, { sock, db, color, func })
@@ -236,8 +256,8 @@ export default class CommandHandler {
         const senderDenied = deniedJids.includes(m.sender)
         const commandAllowed = !access.commands?.length || access.commands.includes(normalizedCommand)
         if ((sessionConfig.access?.ownerOnly || sessionConfig.self) && !m.isOwner || !senderAllowed || senderDenied || !commandAllowed) {
-          await sendOwnerOnlyAlert(sock, db, `Unauthorized access attempt: ${m.sender || 'unknown'} -> ${normalizedCommand || 'command'}\nBody: ${text.slice(0, 300)}`, null, sessionConfig)
-          continue
+          //await sendOwnerOnlyAlert(sock, db, `Unauthorized access attempt: ${m.sender || 'unknown'} -> ${normalizedCommand || 'command'}\nBody: ${text.slice(0, 300)}`, null, sessionConfig)
+          continue // mode self berhenti proses di sini
         }
         if (plugin.dev && !m.isDev) {
           fail('owner', m, sock)
