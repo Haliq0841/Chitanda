@@ -10,6 +10,7 @@ import { ConsoleLogger, createStore, fetchLatestWaWebVersion } from 'zapo-js'
 import { createSqliteStore as createZapoSqliteStore } from '@zapo-js/store-sqlite'
 import { createSqliteStore } from './lib/db.js'
 import { Client, msg } from './lib/serialize.js'
+import schemaModule from './lib/schema.js'
 import { normalizeJid, resolveDatabaseJid, resolveOwnerJids } from './lib/identity.js'
 import color from './lib/color.js'
 import setting from './config.js'
@@ -54,6 +55,7 @@ const defaultData = {
 }
 
 const db = createSqliteStore(path.join(process.cwd(), 'db.sqlite'), defaultData)
+const { schema } = schemaModule
 const handler = new CommandHandler()
 const legacySessionDir = path.join(process.cwd(), 'session')
 const authStoreDir = path.join(process.cwd(), '.auth')
@@ -85,6 +87,16 @@ const store = createStore({
   },
 })
 let debounceTimer
+let dbWriteTimer
+
+const scheduleDatabaseWrite = () => {
+  clearTimeout(dbWriteTimer)
+  dbWriteTimer = setTimeout(() => {
+    db.write().catch((error) => {
+      console.error('[ERROR] Could not persist event update:', error)
+    })
+  }, 250)
+}
 
 const normalizeAuth = (value, fallback = 'qr') => {
   const auth = String(value || fallback).toLowerCase()
@@ -393,6 +405,83 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     markOnlineOnConnect: !sessionConfig.type === 'self',
   })
 
+  const updateGroupFromEvent = async (event) => {
+    const groupJid = normalizeJid(event?.groupJid || event?.chatJid)
+    if (!groupJid || !groupJid.endsWith('@g.us')) return
+
+    db.data.groups ??= {}
+    db.data.groupMetadata ??= {}
+    const group = db.ensureGroup(groupJid, { lastChat: Date.now() })
+    const metadata = db.data.groupMetadata[groupJid] || { jid: groupJid, participants: [] }
+    const participants = Array.isArray(metadata.participants) ? [...metadata.participants] : []
+    const eventParticipants = Array.isArray(event.participants) ? event.participants : []
+    const participantJids = (participant) => [
+      participant?.jid,
+      participant?.lidJid,
+      participant?.phoneJid,
+    ].filter(Boolean).map(normalizeJid)
+    const sameParticipant = (left, right) => participantJids(left).some((jid) => participantJids(right).includes(jid))
+
+    if (event.action === 'delete' || event.action === 'remove' && !eventParticipants.length) {
+      delete db.data.groups[groupJid]
+      delete db.data.groupMetadata[groupJid]
+      scheduleDatabaseWrite()
+      return
+    }
+
+    if (event.subject) {
+      group.name = event.subject
+      metadata.subject = event.subject
+    }
+
+    if (event.action === 'description') metadata.desc = event.description || ''
+    if (['restrict', 'announce', 'no_frequently_forwarded'].includes(event.action) && typeof event.enabled === 'boolean') {
+      const field = {
+        restrict: 'restrict',
+        announce: 'announce',
+        no_frequently_forwarded: 'noFrequentlyForwarded',
+      }[event.action]
+      metadata[field] = event.enabled
+    }
+    if (event.action === 'ephemeral' && typeof event.expirationSeconds === 'number') {
+      metadata.ephemeral = event.expirationSeconds
+    }
+    if (event.action === 'member_add_mode' && event.mode) metadata.memberAddMode = event.mode
+
+    if (['create', 'add', 'promote', 'demote'].includes(event.action)) {
+      for (const participant of eventParticipants) {
+        const index = participants.findIndex((current) => sameParticipant(current, participant))
+        const next = {
+          ...(index >= 0 ? participants[index] : {}),
+          jid: normalizeJid(participant.jid || participant.lidJid || participant.phoneJid),
+          lid: participant.lidJid ? normalizeJid(participant.lidJid) : undefined,
+          phoneNumber: participant.phoneJid ? normalizeJid(participant.phoneJid) : undefined,
+          isAdmin: event.action === 'promote' ? true : event.action === 'demote' ? false : Boolean(participant.role),
+          isSuperAdmin: participant.role === 'superadmin',
+        }
+        if (index >= 0) participants[index] = next
+        else participants.push(next)
+      }
+    }
+
+    if (event.action === 'remove') {
+      metadata.participants = participants.filter((current) => !eventParticipants.some((participant) => sameParticipant(current, participant)))
+    } else {
+      metadata.participants = participants
+    }
+    metadata.jid = metadata.jid || groupJid
+    metadata.lastEvent = Date.now()
+    db.data.groupMetadata[groupJid] = metadata
+    group.lastChat = Date.now()
+    scheduleDatabaseWrite()
+  }
+
+  sock.on('group', (event) => {
+    updateGroupFromEvent(event).catch((error) => {
+      console.error('[ERROR] Could not apply group event to database:', error)
+    })
+  })
+
 
   sock.createSession = async (config = {}) => {
     const requestedId = String(config.session || config.name || '').trim()
@@ -479,6 +568,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
   sock.on('message', async (event) => {
     const message = await msg(sock, event, db)
     if (!message) return
+    await schema(message, sock, db)
     message.sessionConfig = sessionConfig
     message.session = activeSessionId
     const sessionOwners = [

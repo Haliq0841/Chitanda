@@ -1,10 +1,11 @@
 import { YtDlp } from 'ytdlp-nodejs';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const ytdlp = new YtDlp();
-const cookiePath = (new URL('../../.ytdlp-cookies.txt', import.meta.url)).pathname;
-const tmpDir = path.join(__dirname, './temp');
+const cookiePath = fileURLToPath(new URL('../../.ytdlp-cookies.txt', import.meta.url));
+const tmpDir = path.join(process.cwd(), 'temp');
 
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 

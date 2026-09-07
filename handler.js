@@ -177,10 +177,10 @@ export default class CommandHandler {
         `\n${color.yellow('📨')} ${color.cyan(`[${m.session || 'unknown'}]`)} ${color.green(timestamp)}`
       )
       console.log(
-        `${color.magenta('👤')} ${color.green(m.sender)}`
+        `${color.magenta('👤')} ${color.green(m.from)}`
       )
       console.log(
-        `${color.blue('💬')} ${color.green(m.from)}: ${bodyText.slice(0, 200)}${bodyText.length > 200 ? '...' : ''}\n`
+        `${color.blue('💬')} ${color.blue(m.pushName)}: ${bodyText.slice(0, 200)}${bodyText.length > 200 ? '...' : ''}\n`
       )
 
       for (const fn of this.functions) {
