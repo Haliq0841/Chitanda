@@ -367,7 +367,7 @@ export default class CommandHandler {
           }
         }
 
-        if (m.limit) {
+        if (m.limit && !m.error) {
           db.data.users[m.sender].limit = (db.data.users[m.sender].limit || 0) - Number(m.limit)
           m.reply(`${Number(m.limit)} ʟɪᴍɪᴛ ᴋᴀᴍᴜ ᴛᴇʀᴘᴀᴋᴀɪ ✔️`)
         }
