@@ -183,6 +183,16 @@ export default class CommandHandler {
         `${color.blue('💬')} ${color.blue(m.pushName)}: ${bodyText.slice(0, 200)}${bodyText.length > 200 ? '...' : ''}\n`
       )
 
+      const sessionConfig = m.sessionConfig || {}
+      const access = sessionConfig.access || {}
+      const allowedJids = access.allowedJids || []
+      const deniedJids = access.deniedJids || []
+      const senderAllowed = allowedJids.length === 0 || allowedJids.includes(m.sender)
+      const senderDenied = deniedJids.includes(m.sender)
+      const commandAllowed = !access.commands?.length || access.commands.includes(normalizedCommand)
+      if ((sessionConfig.access?.ownerOnly || sessionConfig.self) && !m.isOwner) return true
+          //await sendOwnerOnlyAlert(sock, db, `Unauthorized access attempt: ${m.sender || 'unknown'} -> ${normalizedCommand || 'command'}\nBody: ${text.slice(0, 300)}`, null, sessionConfig)
+      
       for (const fn of this.functions) {
         try {
           await fn(m, { sock, db, color, func })
@@ -192,7 +202,7 @@ export default class CommandHandler {
       }
 
       const text = m.body.trim()
-      const sessionConfig = m.sessionConfig || {}
+      
       const gc = m.isGroup ? db?.data?.groups?.[m.from] : false
       const usr = db?.data?.users?.[m.sender] || {}
       const isPrems = m.isOwner || usr.premium || false
@@ -201,22 +211,25 @@ export default class CommandHandler {
         await sock.readMessages?.([m.key])
       }
 
-      for (const [pluginName, plugin] of this.plugins.entries()) {
-        if (!plugin || plugin.disabled) continue
+      const activePlugins = [...this.plugins.entries()]
+        .filter(([, plugin]) => plugin && !plugin.disabled)
 
-        const fail = plugin.fail || this.dfail
-        m.limit = false
-        m.exp = 0
+      const executedPlugins = []
+      for (const [pluginName, plugin] of activePlugins) {
+        if (typeof plugin.all !== 'function') continue
 
-        if (typeof plugin.all === 'function') {
-          try {
-            await plugin.all.call(sock, m, { conn: sock, chatUpdate: messages, db, func, color, util })
-          } catch (error) {
-            console.error(`[ERROR] Error in plugin 'all' method (${pluginName}):`, error)
-          }
+        try {
+          await plugin.all.call(sock, m, { conn: sock, chatUpdate: messages, db, func, color, util })
+        } catch (error) {
+          console.error(`[ERROR] Error in plugin 'all' method (${pluginName}):`, error)
         }
+      }
 
-        if (typeof plugin.before === 'function') {
+      const skippedPlugins = new Set()
+      for (const [pluginName, plugin] of activePlugins) {
+        if (typeof plugin.before !== 'function') continue
+
+        try {
           const shouldSkip = await plugin.before.call(sock, m, {
             conn: sock,
             db,
@@ -226,39 +239,52 @@ export default class CommandHandler {
             chatUpdate: messages,
             __dirname,
           })
-          if (shouldSkip) continue
+          if (shouldSkip) skippedPlugins.add(pluginName)
+        } catch (error) {
+          console.error(`[ERROR] Error in plugin 'before' method (${pluginName}):`, error)
         }
+      }
 
-        const customPrefix = plugin.customPrefix || this.prefixes
-        const usedPrefix = customPrefix.find((prefix) => text.startsWith(prefix))
-        if (!usedPrefix && !plugin.noPrefix && !db?.data?.setting?.noPrefix) continue
+      const matchedPlugins = activePlugins.flatMap(([pluginName, plugin]) => {
+        if (skippedPlugins.has(pluginName)) return []
+
+        const usedPrefix = (plugin.customPrefix || this.prefixes)
+          .find((prefix) => text.startsWith(prefix))
+        if (!usedPrefix && !plugin.noPrefix && !db?.data?.setting?.noPrefix) return []
 
         const noPrefix = usedPrefix ? text.replace(usedPrefix, '') : text
-        let [command, ...args] = noPrefix.trim().split(/\s+/).filter(Boolean)
-        args = args || []
-        const textMessage = noPrefix.trim().split(/\s+/).slice(1).join(' ')
+        const [command, ...args] = noPrefix.trim().split(/\s+/).filter(Boolean)
         const normalizedCommand = (command || '').toLowerCase()
-
-        const isAccept = plugin.command instanceof RegExp
-          ? plugin.command.test(normalizedCommand)
+        const matchesCommand = plugin.command instanceof RegExp
+          ? (plugin.command.lastIndex = 0, plugin.command.test(normalizedCommand))
           : Array.isArray(plugin.command)
-            ? plugin.command.some((cmd) => cmd instanceof RegExp ? cmd.test(normalizedCommand) : cmd === normalizedCommand)
-            : typeof plugin.command === 'string'
-              ? plugin.command === normalizedCommand
-              : false
+            ? plugin.command.some((cmd) => {
+              if (cmd instanceof RegExp) {
+                cmd.lastIndex = 0
+                return cmd.test(normalizedCommand)
+              }
+              return cmd === normalizedCommand
+            })
+            : plugin.command === normalizedCommand
 
-        if (!isAccept) continue
+        if (!matchesCommand) return []
 
-        const access = sessionConfig.access || {}
-        const allowedJids = access.allowedJids || []
-        const deniedJids = access.deniedJids || []
-        const senderAllowed = allowedJids.length === 0 || allowedJids.includes(m.sender)
-        const senderDenied = deniedJids.includes(m.sender)
-        const commandAllowed = !access.commands?.length || access.commands.includes(normalizedCommand)
-        if ((sessionConfig.access?.ownerOnly || sessionConfig.self) && !m.isOwner || !senderAllowed || senderDenied || !commandAllowed) {
-          //await sendOwnerOnlyAlert(sock, db, `Unauthorized access attempt: ${m.sender || 'unknown'} -> ${normalizedCommand || 'command'}\nBody: ${text.slice(0, 300)}`, null, sessionConfig)
-          continue // mode self berhenti proses di sini
-        }
+        return [[pluginName, plugin, {
+          args,
+          noPrefix,
+          normalizedCommand,
+          textMessage: noPrefix.trim().split(/\s+/).slice(1).join(' '),
+          usedPrefix,
+        }]]
+      })
+
+      for (const [pluginName, plugin, commandInfo] of matchedPlugins) {
+        const { args, noPrefix, normalizedCommand, textMessage, usedPrefix } = commandInfo
+
+        const fail = plugin.fail || this.dfail
+        m.limit = false
+        m.exp = 0
+
         if (plugin.dev && !m.isDev) {
           fail('owner', m, sock)
           continue
@@ -357,13 +383,21 @@ export default class CommandHandler {
               console.error('[ERROR] Failed to notify plugin error back to user:', replyError)
             }
           }
-        } finally {
-          if (typeof plugin.after === 'function') {
-            try {
-              await plugin.after.call(sock, m, extra)
-            } catch (error) {
-              console.error(`[ERROR] Error in plugin 'after' method (${pluginName}):`, error)
-            }
+        }
+
+        executedPlugins.push({ pluginName, plugin, extra, limit: m.limit, exp: m.exp })
+      }
+
+      for (const { pluginName, plugin, extra, limit, exp } of executedPlugins) {
+        m.plugin = pluginName
+        m.limit = limit
+        m.exp = exp
+
+        if (typeof plugin.after === 'function') {
+          try {
+            await plugin.after.call(sock, m, extra)
+          } catch (error) {
+            console.error(`[ERROR] Error in plugin 'after' method (${pluginName}):`, error)
           }
         }
 

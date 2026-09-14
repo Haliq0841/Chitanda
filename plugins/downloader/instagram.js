@@ -24,7 +24,7 @@ const downloadMedia = async (url, fallbackMime = 'application/octet-stream') => 
     return { buffer, contentType }
 }
 
-const sendMediaList = async (conn, from, list, quoted, caption = 'Instagram media') => {
+const sendMediaList = async (conn, from, list, quoted, caption = '') => {
     const mediaList = list.filter(Boolean)
     if (!mediaList.length) throw new Error('Tidak ada media yang berhasil diambil dari Instagram.')
 
@@ -36,7 +36,6 @@ const sendMediaList = async (conn, from, list, quoted, caption = 'Instagram medi
         const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(String(mediaUrl)) || /video/i.test(String(item?.type || ''))
         const { buffer, contentType } = await downloadMedia(String(mediaUrl), isVideo ? 'video/mp4' : 'image/jpeg')
         await conn.sendMedia(from, buffer, quoted, {
-            mimetype: isVideo ? (contentType.includes('video') ? contentType : 'video/mp4') : (contentType.includes('image') ? contentType : 'image/jpeg'),
             caption,
             asSticker: false,
         })
@@ -92,8 +91,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             if (!mediaUrl) throw 'Gagal mengunduh media dari Instagram. Coba link lain.'
 
             await conn.sendMedia(m.from, String(mediaUrl), m, {
-                mimetype: /\.(mp4|mov|webm)(\?|$)/i.test(String(mediaUrl)) ? 'video/mp4' : 'image/jpeg',
-                caption: 'Instagram media'
+                caption: ''
             })
             return
         }

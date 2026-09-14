@@ -81,8 +81,8 @@ const store = createStore({
     senderKey: 'sqlite',
     appState: 'sqlite',
     privacyToken: 'sqlite',
-    messages: 'sqlite',
-    threads: 'sqlite',
+    messages: 'none',
+    threads: 'none',
     contacts: 'sqlite',
   },
 })
@@ -573,13 +573,13 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     await schema(message, sock, db)
     message.sessionConfig = sessionConfig
     message.session = activeSessionId
-    const sessionOwners = [
+    const sessionOwners = await resolveOwnerJids(sock, [
       sessionConfig.selfOwner,
       ...(sessionConfig.access?.allowedJids || []),
-    ].map(normalizeJid).filter(Boolean)
-    message.isOwner = sessionOwners.includes(normalizeJid(message.sender))
+    ])
+    message.isOwner = message.isOwner || sessionOwners.includes(message.sender)
     const developerOwners = await resolveOwnerJids(sock, Array.isArray(db.data.setting.owner) ? db.data.setting.owner : [])
-    message.isDev = developerOwners.includes(normalizeJid(message.sender))
+    message.isDev = developerOwners.includes(message.sender)
     await handler.execute(message, sock, db, func, color, console, { type: 'notify', messages: [event] })
     await db.write()
   })
