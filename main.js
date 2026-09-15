@@ -405,6 +405,8 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     mediaTimeoutMs: Number(setting.mediaTimeoutMs) > 0 ? Number(setting.mediaTimeoutMs) : 120000,
     markOnlineOnConnect: !sessionConfig.type === 'self',
   })
+  let connectionOpen = false
+  sock.isConnected = () => connectionOpen
 
   const updateGroupFromEvent = async (event) => {
     const groupJid = normalizeJid(event?.groupJid || event?.chatJid)
@@ -528,6 +530,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
   })
 
   sock.on('connection', async ({ status, reason }) => {
+    connectionOpen = status === 'open'
     console.log(color.yellow(`[+] Connection Status: ${status}`))
 
     if (status === 'close') {
