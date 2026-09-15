@@ -135,7 +135,7 @@ async function getVideoInfo(videoId) {
         throw 'ID video YouTube tidak valid atau hasil pencarian tidak lengkap.';
     }
     const url = `https://www.youtube.com/watch?v=${videoId}`;
-    return await ytdlp.getInfo(url, { ...(await getYtdlpOptions()), cookies: getCookies() });
+    return await ytdlp.getInfoAsync(url, { ...(await getYtdlpOptions()), cookies: getCookies() });
 }
 
 async function searchVideos(query, limit = 10) {
