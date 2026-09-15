@@ -6,6 +6,7 @@ import path from 'path';
 import net from 'net';
 import { fileURLToPath } from 'url';
 import ffmpegPath from 'ffmpeg-static';
+import { type } from 'os';
 
 const ytdlp = new YtDlp();
 const cookiePath = fileURLToPath(new URL('../../.ytdlp-cookies.txt', import.meta.url));
@@ -746,15 +747,38 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
 
                 const fileSize = (fs.statSync(outputPath).size / (1024 * 1024)).toFixed(2);
 
-                await status.edit(`Berhasil Mengunduh *${title}*\nSize: ${fileSize} MB,\nSedang Mengirim...`);
+                await status.edit(`Berhasil Mengunduh *${title}*\nSize: ${fileSize} MB,\nSedang memproses...`);
 
-                await conn.sendMedia(m.from, outputPath, m, {
-                    //mimetype: 'video/mp4',
-                    caption: cap,
-                    //jpegThumbnail: info.thumbnail ? await fetch(info.thumbnail).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf)).catch(() => undefined) : undefined
+                const processedPath = path.join(tmpDir, `${videoId}_${Date.now()}_processed.mp4`);
+                await new Promise((resolve, reject) => {
+                    const ffmpeg = spawn(ffmpegPath, [
+                        '-hide_banner',
+                        '-loglevel', 'error',
+                        '-i', outputPath,
+                        '-c:v', 'libx264',
+                        '-preset', 'fast',
+                        '-crf', '23',
+                        '-c:a', 'aac',
+                        '-b:a', '128k',
+                        '-movflags', '+faststart',
+                        '-y', processedPath
+                    ]);
+                    ffmpeg.once('error', reject);
+                    ffmpeg.once('close', code => {
+                        if (code !== 0) reject(new Error(`FFmpeg gagal memproses video (${code})`));
+                        else resolve();
+                    });
+                });
+
+                //const videoBuffer = fs.readFileSync(processedPath);
+                await conn.sendMedia(m.from, processedPath, m, {
+                    mimetype: 'video/mp4',
+                    fileName: `${title.replace(/[\\/:*?"<>|]/g, '_')}.mp4`,
+                    caption: cap
                 });
 
                 fs.unlinkSync(outputPath);
+                fs.unlinkSync(processedPath);
             } catch (e) {
                 if (status) await status.edit(`Gagal: ${e.message || e}`);
                 throw e;

@@ -407,6 +407,10 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
   })
   let connectionOpen = false
   sock.isConnected = () => connectionOpen
+  
+  if (!sessionConfig.type === 'self') {
+    sock.client.presence.send('available')
+  }
 
   const updateGroupFromEvent = async (event) => {
     const groupJid = normalizeJid(event?.groupJid || event?.chatJid)
