@@ -749,9 +749,9 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
                 await status.edit(`Berhasil Mengunduh *${title}*\nSize: ${fileSize} MB,\nSedang Mengirim...`);
 
                 await conn.sendMedia(m.from, outputPath, m, {
-                    mimetype: 'video/mp4',
+                    //mimetype: 'video/mp4',
                     caption: cap,
-                    jpegThumbnail: info.thumbnail ? await fetch(info.thumbnail).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf)).catch(() => undefined) : undefined
+                    //jpegThumbnail: info.thumbnail ? await fetch(info.thumbnail).then(v => v.arrayBuffer()).then(buf => Buffer.from(buf)).catch(() => undefined) : undefined
                 });
 
                 fs.unlinkSync(outputPath);
