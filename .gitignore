@@ -141,6 +141,7 @@ vite.config.ts.timestamp-*
 
 .auth
 session/
+temp/
 db.json
 config.js
 test.js

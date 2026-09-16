@@ -267,9 +267,9 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
   }
 };
 
-handler.help = ["wink <angka>", "hd <angka>", "vhd"];
+handler.help = ["wink <angka>"];
 handler.tags = ["tools", "ai"];
-handler.command = /^(wink|hd|vhd|unblur)$/i;
+handler.command = /^(wink)$/i;
 handler.limit = true;
 
 export default handler;
