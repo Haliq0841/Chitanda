@@ -4,7 +4,7 @@ let setting = {
     usePairingCode: true,
     self: false,
     selfOwner: '6285849227863@s.whatsapp.net',
-    mediaTimeoutMs: 120000,
+    mediaTimeoutMs: 15 * 60 * 1000,
     logLevel: 'error', /*logLevel: 'fatal'   // paling minimal, hanya fatal
 logLevel: 'error'   // biasa dipakai
 logLevel: 'warn'    // lebih banyak

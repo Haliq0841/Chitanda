@@ -694,6 +694,7 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
         case 'ytv':
         case 'ythd': {
             let status;
+            let outputPath;
             const [searchQuery, resolusi] = query ? query.split('|') : ['', ''];
             let videoId = extractVideoId(searchQuery);
             let info = null;
@@ -734,54 +735,33 @@ const handler = async (m, { conn, args, isOwner, text, __dirname, thisClass, use
 
                 await status.edit(`Berhasil Menemukan *${title}*,\nSedang mendownload...`);
 
-                const quality = resolusi ? resolusi.replace(/[^0-9]/g, '') : '720';
-                const outputPath = path.join(tmpDir, `${videoId}_${Date.now()}.mp4`);
+                const quality = resolusi ? resolusi.replace(/[^0-9]/g, '') : '480';
+                outputPath = path.join(tmpDir, `${videoId}_${Date.now()}.mp4`);
 
                 await ytdlp.download(url, {
                     ...(await getYtdlpOptions()),
                     cookies: getCookies(),
-                    format: `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`,
+                    format: `bestvideo[height<=${quality}][vcodec^=avc1]+bestaudio[ext=m4a]/best[height<=${quality}][vcodec^=avc1]`,
                     output: outputPath,
                     mergeOutputFormat: 'mp4'
                 });
 
                 const fileSize = (fs.statSync(outputPath).size / (1024 * 1024)).toFixed(2);
 
-                await status.edit(`Berhasil Mengunduh *${title}*\nSize: ${fileSize} MB,\nSedang memproses...`);
+                await status.edit(`Berhasil Mengunduh *${title}*\nSize: ${fileSize} MB,\nSedang mengirim...`);
 
-                const processedPath = path.join(tmpDir, `${videoId}_${Date.now()}_processed.mp4`);
-                await new Promise((resolve, reject) => {
-                    const ffmpeg = spawn(ffmpegPath, [
-                        '-hide_banner',
-                        '-loglevel', 'error',
-                        '-i', outputPath,
-                        '-c:v', 'libx264',
-                        '-preset', 'fast',
-                        '-crf', '23',
-                        '-c:a', 'aac',
-                        '-b:a', '128k',
-                        '-movflags', '+faststart',
-                        '-y', processedPath
-                    ]);
-                    ffmpeg.once('error', reject);
-                    ffmpeg.once('close', code => {
-                        if (code !== 0) reject(new Error(`FFmpeg gagal memproses video (${code})`));
-                        else resolve();
-                    });
-                });
-
-                //const videoBuffer = fs.readFileSync(processedPath);
-                await conn.sendMedia(m.from, processedPath, m, {
+                //const videoBuffer = await fs.promises.readFile(outputPath);
+                await conn.sendMedia(m.from, outputPath, m, {
                     mimetype: 'video/mp4',
                     fileName: `${title.replace(/[\\/:*?"<>|]/g, '_')}.mp4`,
                     caption: cap
                 });
 
-                fs.unlinkSync(outputPath);
-                fs.unlinkSync(processedPath);
             } catch (e) {
                 if (status) await status.edit(`Gagal: ${e.message || e}`);
                 throw e;
+            } finally {
+                if (outputPath) await fs.promises.rm(outputPath, { force: true }).catch(() => {});
             }
             break;
         }
