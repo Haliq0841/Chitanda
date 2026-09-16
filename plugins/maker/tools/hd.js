@@ -7,6 +7,12 @@ import waifu2xModule from 'waifu2x';
 const tempDir = path.join(process.cwd(), 'temp');
 const waifu2x = waifu2xModule?.default || waifu2xModule;
 
+function prepareWaifu2xBinaries() {
+    if (process.platform !== 'win32') {
+        waifu2x.chmod777?.();
+    }
+}
+
 function getMediaInfo(message) {
     const source = message?.msg || message || {};
     return {
@@ -159,6 +165,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
         const progress = createProgressReporter(status, `Memproses ${mediaLabel} (${options.scale}x)...`);
         const inputPath = path.join(tempDir, `hd-${crypto.randomUUID()}${mime.startsWith('video/') ? '.mp4' : getImageExtension(mime)}`);
         const outputPath = path.join(tempDir, `hd-${crypto.randomUUID()}${mime.startsWith('video/') ? '.mp4' : '.png'}`);
+        let generatedOutputPath = outputPath;
 
         try {
             let mediaBuffer = await downloadMedia(quoted, conn);
@@ -169,22 +176,29 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
             await status.edit('Menunggu slot resource HD...');
             await runWithHdResource(async () => {
+                prepareWaifu2xBinaries();
                 if (mime.startsWith('video/')) {
-                    await waifu2x.upscaleVideo(inputPath, outputPath, {
+                    generatedOutputPath = await waifu2x.upscaleVideo(inputPath, outputPath, {
                         ...options,
                         quality: 14,
                         pngFrames: true,
                         speed: 1
                     }, progress.report);
+                    if (!generatedOutputPath || !fs.existsSync(generatedOutputPath)) {
+                        throw new Error(`Waifu2x tidak menghasilkan file output: ${generatedOutputPath || outputPath}`);
+                    }
                 } else {
-                    await waifu2x.upscaleImage(inputPath, outputPath, options, progress.report);
+                    generatedOutputPath = await waifu2x.upscaleImage(inputPath, outputPath, options, progress.report);
+                    if (!generatedOutputPath || !fs.existsSync(generatedOutputPath)) {
+                        throw new Error(`Waifu2x tidak menghasilkan file output: ${generatedOutputPath || outputPath}`);
+                    }
                 }
             });
 
             progress.report(100, 100);
             await progress.flush();
             await status.edit('Selesai diproses, sedang mengirim...');
-            const outputBuffer = await fs.promises.readFile(outputPath);
+            const outputBuffer = await fs.promises.readFile(generatedOutputPath);
             const outputMime = mime.startsWith('video/') ? 'video/mp4' : 'image/png';
             const extension = mime.startsWith('video/') ? 'mp4' : 'png';
             const originalName = path.basename(fileName || `hd.${extension}`, path.extname(fileName || ''))
@@ -201,6 +215,9 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
         } finally {
             await fs.promises.rm(inputPath, { force: true }).catch(() => {});
             await fs.promises.rm(outputPath, { force: true }).catch(() => {});
+            if (generatedOutputPath !== outputPath) {
+                await fs.promises.rm(generatedOutputPath, { force: true }).catch(() => {});
+            }
         }
     });
 

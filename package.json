@@ -46,9 +46,11 @@
         "syntax-error": "^1.4.0",
         "tough-cookie": "^6.0.2",
         "unzipper": "^0.12.5",
-        "waifu2x": "^1.6.5",
         "yargs": "^18.1.0",
         "ytdlp-nodejs": "^3.4.5",
         "zapo-js": "^1.8.2"
+    },
+    "optionalDependencies": {
+        "waifu2x": "^1.6.5"
     }
 }
