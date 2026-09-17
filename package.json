@@ -18,6 +18,7 @@
     "scripts": {
         "start": "node index.js",
         "start:all": "node start-all.js",
+        "waifu2x:install-model": "node lib/waifu2x.js install-model",
         "migrate:legacy": "node migrate-legacy.js",
         "test": "echo \"No tests specified\" && exit 0"
     },

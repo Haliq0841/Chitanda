@@ -1,12 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import ffmpegPath from 'ffmpeg-static';
-import waifu2xModule from 'waifu2x';
+import * as waifu2x from '../../../lib/waifu2x.js';
+
+const execFileAsync = promisify(execFile);
 
 const tempDir = path.join(process.cwd(), 'temp');
-const waifu2x = waifu2xModule?.default || waifu2xModule;
-
 function prepareWaifu2xBinaries() {
     if (process.platform !== 'win32') {
         waifu2x.chmod777?.();
@@ -44,6 +46,46 @@ async function downloadMedia(message, conn) {
     return await message.download?.()
         || await conn.downloadMediaMessage?.(message)
         || await conn.downloadMediaMessage?.(message, 'hd');
+}
+
+function getDurationSeconds(source = {}) {
+    const candidates = [
+        source?.seconds,
+        source?.duration,
+        source?.mediaDuration,
+        source?.videoDuration,
+        source?.msg?.seconds,
+        source?.msg?.duration,
+        source?.msg?.mediaDuration,
+        source?.message?.videoMessage?.seconds,
+        source?.message?.videoMessage?.duration,
+        source?.message?.videoMessage?.mediaDuration,
+        source?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage?.seconds,
+        source?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage?.duration,
+    ];
+
+    for (const value of candidates) {
+        const number = Number(value);
+        if (Number.isFinite(number) && number > 0) return number;
+    }
+    return null;
+}
+
+async function getVideoDurationFromFile(filePath) {
+    try {
+        const { stderr } = await execFileAsync(ffmpegPath, ['-i', filePath, '-f', 'null', '-'], {
+            windowsHide: true,
+            timeout: 30000,
+        });
+        const match = String(stderr || '').match(/Duration:\s+(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/i);
+        if (!match) return null;
+        return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+    } catch (error) {
+        const text = String(error?.stderr || error?.message || '');
+        const match = text.match(/Duration:\s+(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/i);
+        if (!match) return null;
+        return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+    }
 }
 
 function createProgressReporter(status, label) {
@@ -137,7 +179,7 @@ function enqueueHdJob(type, task) {
     };
 }
 
-const handler = async (m, { conn, args, usedPrefix, command }) => {
+const handler = async (m, { conn, args, usedPrefix, command, db }) => {
     const quoted = m.quoted ? m.quoted : m;
     const { mime, fileName } = getMediaInfo(quoted);
 
@@ -166,6 +208,9 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
         const inputPath = path.join(tempDir, `hd-${crypto.randomUUID()}${mime.startsWith('video/') ? '.mp4' : getImageExtension(mime)}`);
         const outputPath = path.join(tempDir, `hd-${crypto.randomUUID()}${mime.startsWith('video/') ? '.mp4' : '.png'}`);
         let generatedOutputPath = outputPath;
+        let engineUsed = mime.startsWith('video/')
+            ? 'waifu2x (video)'
+            : process.platform === 'win32' ? 'waifu2x converter' : 'waifu2x NCNN (GPU auto)';
 
         try {
             let mediaBuffer = await downloadMedia(quoted, conn);
@@ -174,7 +219,30 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
             await fs.promises.writeFile(inputPath, mediaBuffer);
             mediaBuffer = null;
 
-            await status.edit('Menunggu slot resource HD...');
+            if (mime.startsWith('video/')) {
+                const sourceDuration = getDurationSeconds(quoted) ?? await getVideoDurationFromFile(inputPath);
+                const durationLimit = Number.isFinite(Number(sourceDuration)) && Number(sourceDuration) > 0
+                    ? Math.max(1, Math.ceil(Number(sourceDuration)))
+                    : 1;
+                m.limit = durationLimit;
+            } else {
+                m.limit = 1;
+            }
+
+            const currentUserLimit = Number(db?.data?.users?.[m.sender]?.limit ?? 0);
+            if (currentUserLimit < Number(m.limit || 0)) {
+                throw `Limit kamu tidak cukup untuk video ini. Butuh ${Number(m.limit)} limit, sisa ${currentUserLimit}.`;
+            }
+
+            const engineLabel = mime.startsWith('video/')
+                ? 'waifu2x converter (video)'
+                : process.platform === 'win32' ? 'waifu2x converter' : 'waifu2x NCNN (GPU auto)';
+            engineUsed = engineLabel;
+            const reportEngine = engine => {
+                engineUsed = engine;
+                return status.edit(`Memproses ${mediaLabel} (${options.scale}x)...\nEngine: ${engine}`).catch(() => {});
+            };
+            await status.edit(`Menunggu slot resource HD...\nEngine: ${engineLabel}`);
             await runWithHdResource(async () => {
                 prepareWaifu2xBinaries();
                 if (mime.startsWith('video/')) {
@@ -182,13 +250,17 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
                         ...options,
                         quality: 14,
                         pngFrames: true,
-                        speed: 1
+                        speed: 1,
+                        onEngine: reportEngine
                     }, progress.report);
                     if (!generatedOutputPath || !fs.existsSync(generatedOutputPath)) {
                         throw new Error(`Waifu2x tidak menghasilkan file output: ${generatedOutputPath || outputPath}`);
                     }
                 } else {
-                    generatedOutputPath = await waifu2x.upscaleImage(inputPath, outputPath, options, progress.report);
+                    generatedOutputPath = await waifu2x.upscaleImage(inputPath, outputPath, {
+                        ...options,
+                        onEngine: reportEngine
+                    }, progress.report);
                     if (!generatedOutputPath || !fs.existsSync(generatedOutputPath)) {
                         throw new Error(`Waifu2x tidak menghasilkan file output: ${generatedOutputPath || outputPath}`);
                     }
@@ -207,7 +279,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
             await conn.sendMedia(m.chat || m.from, outputBuffer, m, {
                 mimetype: outputMime,
                 fileName: `${originalName}-hd.${extension}`,
-                caption: `HD ${options.scale}x berhasil diproses.`
+                caption: `HD ${options.scale}x berhasil diproses.\nEngine: ${engineUsed}`
             });
         } catch (error) {
             await status.edit(`Gagal memproses media: ${error?.message || error}`);

@@ -65,7 +65,12 @@ npm install
 # 5. Salin & edit konfigurasi
 cp config.js.example config.js
 nano config.js
+
+# 6. (Opsional) Unduh model waifu2x native untuk plugin hd.js
+npm run waifu2x:install-model
 ```
+
+Fitur `hd` tetap dapat digunakan tanpa model native dan akan memakai pemrosesan lokal berbasis `sharp`. Model native hanya perlu diunduh jika ingin memakai binary waifu2x penuh.
 
 ---
 
