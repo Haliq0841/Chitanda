@@ -58,6 +58,14 @@ export default class CommandHandler {
     }
   }
 
+  plugin(name) {
+    if (!name) return undefined
+    const pluginName = String(name)
+    return this.plugins.get(pluginName)
+      || this.plugins.get(`${pluginName}.js`)
+      || [...this.plugins.entries()].find(([fileName]) => path.basename(fileName, path.extname(fileName)) === pluginName)?.[1]
+  }
+
   clear() {
     this.plugins.clear()
   }
@@ -159,9 +167,11 @@ export default class CommandHandler {
         bodyText = m.message.conversation.trim()
       }
 
-      if (!m || !bodyText || this.executedCommands.has(m.id)) return false
+      if (!m || !bodyText) return false
+      const executionKey = `${m.session || 'default'}:${m.id}`
+      if (this.executedCommands.has(executionKey)) return false
       m.body = bodyText
-      this.executedCommands.add(m.id)
+      this.executedCommands.add(executionKey)
 
       const timestamp = new Date().toLocaleString('id-ID', {
         day: '2-digit',
@@ -366,9 +376,11 @@ export default class CommandHandler {
           m.limit = m.limit || plugin.limit || false
         }
 
+        let pluginSucceeded = false
         try {
           m.plugin = pluginName
           await plugin.call(sock, m, extra)
+          pluginSucceeded = true
         } catch (error) {
           m.error = error
           console.error(`[ERROR] Error in plugin command method (${pluginName}):`, error)
@@ -385,10 +397,10 @@ export default class CommandHandler {
           }
         }
 
-        executedPlugins.push({ pluginName, plugin, extra, limit: m.limit, exp: m.exp })
+        executedPlugins.push({ pluginName, plugin, extra, limit: m.limit, exp: m.exp, pluginSucceeded })
       }
 
-      for (const { pluginName, plugin, extra, limit, exp } of executedPlugins) {
+      for (const { pluginName, plugin, extra, limit, exp, pluginSucceeded } of executedPlugins) {
         m.plugin = pluginName
         m.limit = limit
         m.exp = exp
@@ -401,13 +413,13 @@ export default class CommandHandler {
           }
         }
 
-        if (m.limit) {
+        if (pluginSucceeded && limit) {
           db.data.users[m.sender].limit = (db.data.users[m.sender].limit || 0) - Number(m.limit)
           m.reply(`${Number(m.limit)} ʟɪᴍɪᴛ ᴋᴀᴍᴜ ᴛᴇʀᴘᴀᴋᴀɪ ✔️`)
         }
 
-        if (m.exp) {
-          db.data.users[m.sender].exp = (db.data.users[m.sender].exp || 0) + Number(m.exp)
+        if (pluginSucceeded && exp) {
+          db.data.users[m.sender].exp = (db.data.users[m.sender].exp || 0) + Number(exp)
         }
       }
     } catch (error) {

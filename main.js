@@ -587,6 +587,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     message.isOwner = message.isOwner || sessionOwners.includes(message.sender)
     const developerOwners = await resolveOwnerJids(sock, Array.isArray(db.data.setting.owner) ? db.data.setting.owner : [])
     message.isDev = developerOwners.includes(message.sender)
+      || sessionConfig.role === 'dev' && sessionOwners.includes(message.sender)
     await handler.execute(message, sock, db, func, color, console, { type: 'notify', messages: [event] })
     await db.write()
   })
@@ -607,13 +608,12 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
   await sock.connect()
   sock.user ??= { id: sock.auth?.getCurrentCredentials?.()?.meJid ?? null, name: '' }
   await migrateDatabaseIdentities(sock)
-  const resolvedOwners = await resolveOwnerJids(sock, [
-    sessionConfig.selfOwner,
-    ...(Array.isArray(db.data.setting.owner) ? db.data.setting.owner : []),
-  ])
+  const configuredDeveloperOwners = Array.isArray(db.data.setting.owner) ? db.data.setting.owner : []
+  const resolvedOwners = await resolveOwnerJids(sock, [sessionConfig.selfOwner, ...configuredDeveloperOwners])
   if (resolvedOwners.length) {
-    sessionConfig.selfOwner = resolvedOwners[0]
-    db.data.setting.owner = resolvedOwners
+    sessionConfig.selfOwner = sessionConfig.selfOwner || resolvedOwners[0]
+    const resolvedDeveloperOwners = await resolveOwnerJids(sock, configuredDeveloperOwners)
+    if (resolvedDeveloperOwners.length) db.data.setting.owner = resolvedDeveloperOwners
     await saveSession(activeSessionId, sessionConfig)
   }
   return sock

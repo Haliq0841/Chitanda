@@ -8,7 +8,7 @@ const downloadMedia = async (url, fallbackMime = 'application/octet-stream') => 
     return { buffer, contentType }
 }
 
-var handler = async (m, { conn, args, usedPrefix, command }) => {
+var handler = async (m, { conn, args, usedPrefix, command, thisClass }) => {
     if (!args || !args[0]) throw `Example:\n${usedPrefix + command} https://www.tiktok.com/@mewmeo062_/video/7553572796467596562`
 
     const url = String(args[0]).trim()
@@ -79,6 +79,25 @@ var handler = async (m, { conn, args, usedPrefix, command }) => {
         }
     } catch (e) {
         console.error('[ERROR] TikTok downloader failed:', e)
+        const downloader = thisClass?.plugin?.('dl')
+        if (typeof downloader?.download === 'function') {
+            try {
+                await status.edit('API TikTok gagal, mencoba yt-dlp...')
+                const media = await downloader.download(url)
+                try {
+                    await conn.sendMedia(m.from, media.source, m, {
+                        mimetype: media.mimetype,
+                        fileName: media.fileName,
+                        caption: ''
+                    })
+                } finally {
+                    await media.cleanup?.()
+                }
+                return
+            } catch (fallbackError) {
+                console.error('[ERROR] TikTok yt-dlp fallback failed:', fallbackError)
+            }
+        }
         throw 'Gagal, mungkin link tidak valid, private, atau API TikTok sedang berubah.'
     }
 }

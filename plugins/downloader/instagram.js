@@ -42,7 +42,7 @@ const sendMediaList = async (conn, from, list, quoted, caption = '') => {
     }
 }
 
-let handler = async (m, { conn, args, usedPrefix, command }) => {
+let handler = async (m, { conn, args, usedPrefix, command, thisClass }) => {
     if (!args || !args[0]) throw `Example:\n${usedPrefix + command} https://www.instagram.com/reel/CZQsQveo-g8/`
 
     const url = String(args[0]).trim()
@@ -68,6 +68,26 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         await sendMediaList(conn, m.from, mediaList, m)
         return
     } catch (e) {
+        const downloader = thisClass?.plugin?.('dl')
+        if (typeof downloader?.download === 'function') {
+            try {
+                await status.edit('API Instagram gagal, mencoba yt-dlp...')
+                const media = await downloader.download(url)
+                try {
+                    await conn.sendMedia(m.from, media.source, m, {
+                        mimetype: media.mimetype,
+                        fileName: media.fileName,
+                        caption: ''
+                    })
+                } finally {
+                    await media.cleanup?.()
+                }
+                return
+            } catch (fallbackError) {
+                console.error('[ERROR] Instagram yt-dlp fallback failed:', fallbackError)
+            }
+        }
+
         try {
             const fallback = await axios({
                 method: 'GET',

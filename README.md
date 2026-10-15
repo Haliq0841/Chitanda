@@ -179,9 +179,15 @@ Semua session tersimpan di SQLite. Setiap session punya metadata: `name`, `type`
 
 ```text
 .jadibot 6281234567890 nama-sesi
+.jadibotself 6281234567890 nama-sesi
+.jadibotselfdev 6281234567890 nama-sesi
+.update
 ```
 
-> Nomor akan menerima pairing code. Owner session = user yang menjalankan command. Role `dev` dan command `eval`, `exec`, `sf` hanya untuk developer utama.
+> Nomor akan menerima pairing code. Pada `.jadibot` dan `.jadibotself`, owner session adalah user yang menjalankan command. Role `dev` dan command `eval`, `exec`, `sf` hanya untuk developer utama.
+> `.jadibotself` membuat session mode self yang hanya dapat digunakan oleh user yang menjalankan command; akses developer tetap khusus developer utama.
+> `.jadibotselfdev` hanya dapat dijalankan developer utama dan memberi nomor target akses developer penuh pada session tersebut saja.
+> `.update` menyamakan file tracked dengan branch `main` GitHub dan hanya dapat dijalankan developer utama. Perubahan lokal pada file tracked akan ditimpa; file untracked tidak dibersihkan. Restart bot setelah update.
 
 ---
 
