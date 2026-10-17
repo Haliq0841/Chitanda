@@ -587,6 +587,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
       || (sessionConfig.self ? sock.user?.id || sessionConfig.number : '')
     const sessionOwners = await resolveOwnerJids(sock, [
       sessionOwner,
+      ...(sessionConfig.self ? [sock.user?.id, sessionConfig.number] : []),
       ...(sessionConfig.access?.allowedJids || []),
     ])
     const senderIdentities = await resolveOwnerJids(sock, [
@@ -595,6 +596,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
       message.from,
     ])
     const isSessionOwner = sessionOwners.some((jid) => senderIdentities.includes(jid))
+      || Boolean(sessionConfig.self && message.fromMe)
     message.isOwner = message.isOwner || isSessionOwner
     const developerOwners = await resolveOwnerJids(sock, Array.isArray(db.data.setting.owner) ? db.data.setting.owner : [])
     message.isDev = developerOwners.some((jid) => senderIdentities.includes(jid))
