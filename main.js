@@ -526,6 +526,9 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     const pairedNumber = String(credentials?.meJid || '').split('@')[0].replace(/[^0-9]/g, '')
     if (pairedNumber) {
       sessionConfig.number = pairedNumber
+      if (sessionConfig.self && !sessionConfig.selfOwner) {
+        sessionConfig.selfOwner = normalizeJid(credentials?.meJid || pairedNumber)
+      }
       saveSession(activeSessionId, sessionConfig).catch((error) => {
         console.error(`[ERROR] Could not save session "${activeSessionId}" metadata:`, error)
       })
@@ -580,14 +583,22 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     await schema(message, sock, db)
     message.sessionConfig = sessionConfig
     message.session = activeSessionId
+    const sessionOwner = sessionConfig.selfOwner
+      || (sessionConfig.self ? sock.user?.id || sessionConfig.number : '')
     const sessionOwners = await resolveOwnerJids(sock, [
-      sessionConfig.selfOwner,
+      sessionOwner,
       ...(sessionConfig.access?.allowedJids || []),
     ])
-    message.isOwner = message.isOwner || sessionOwners.includes(message.sender)
+    const senderIdentities = await resolveOwnerJids(sock, [
+      message.sender,
+      message.senderJid,
+      message.from,
+    ])
+    const isSessionOwner = sessionOwners.some((jid) => senderIdentities.includes(jid))
+    message.isOwner = message.isOwner || isSessionOwner
     const developerOwners = await resolveOwnerJids(sock, Array.isArray(db.data.setting.owner) ? db.data.setting.owner : [])
-    message.isDev = developerOwners.includes(message.sender)
-      || sessionConfig.role === 'dev' && sessionOwners.includes(message.sender)
+    message.isDev = developerOwners.some((jid) => senderIdentities.includes(jid))
+      || sessionConfig.role === 'dev' && isSessionOwner
     await handler.execute(message, sock, db, func, color, console, { type: 'notify', messages: [event] })
     await db.write()
   })
@@ -609,11 +620,17 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
   sock.user ??= { id: sock.auth?.getCurrentCredentials?.()?.meJid ?? null, name: '' }
   await migrateDatabaseIdentities(sock)
   const configuredDeveloperOwners = Array.isArray(db.data.setting.owner) ? db.data.setting.owner : []
-  const resolvedOwners = await resolveOwnerJids(sock, [sessionConfig.selfOwner, ...configuredDeveloperOwners])
-  if (resolvedOwners.length) {
-    sessionConfig.selfOwner = sessionConfig.selfOwner || resolvedOwners[0]
-    const resolvedDeveloperOwners = await resolveOwnerJids(sock, configuredDeveloperOwners)
-    if (resolvedDeveloperOwners.length) db.data.setting.owner = resolvedDeveloperOwners
+  const sessionOwner = sessionConfig.selfOwner
+    || (sessionConfig.self ? sock.user?.id || sessionConfig.number : '')
+  const resolvedSessionOwners = await resolveOwnerJids(sock, [sessionOwner])
+  const resolvedDeveloperOwners = await resolveOwnerJids(sock, configuredDeveloperOwners)
+  if (resolvedSessionOwners.length) {
+    sessionConfig.selfOwner = resolvedSessionOwners[0]
+  }
+  if (resolvedDeveloperOwners.length) {
+    db.data.setting.owner = resolvedDeveloperOwners
+  }
+  if (resolvedSessionOwners.length || resolvedDeveloperOwners.length) {
     await saveSession(activeSessionId, sessionConfig)
   }
   return sock

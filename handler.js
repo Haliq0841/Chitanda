@@ -200,7 +200,7 @@ export default class CommandHandler {
       const senderAllowed = allowedJids.length === 0 || allowedJids.includes(m.sender)
       const senderDenied = deniedJids.includes(m.sender)
       const commandAllowed = !access.commands?.length || access.commands.includes(normalizedCommand)
-      if ((sessionConfig.access?.ownerOnly || sessionConfig.self) && !m.isOwner) return true
+      if ((sessionConfig.access?.ownerOnly || sessionConfig.self) && !m.isOwner && !m.isDev) return true
           //await sendOwnerOnlyAlert(sock, db, `Unauthorized access attempt: ${m.sender || 'unknown'} -> ${normalizedCommand || 'command'}\nBody: ${text.slice(0, 300)}`, null, sessionConfig)
       
       for (const fn of this.functions) {
