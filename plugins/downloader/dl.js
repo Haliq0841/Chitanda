@@ -2,7 +2,7 @@ import { YtDlp } from 'ytdlp-nodejs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import ffmpegPath from 'ffmpeg-static'
+import { getBinaryPath } from '../../Binary/init.js'
 
 const ytdlp = new YtDlp()
 const tempDir = path.join(process.cwd(), 'temp')
@@ -24,9 +24,10 @@ function safeFileName(value) {
     return (name || 'download').slice(0, 120)
 }
 
-function getYtdlpOptions() {
+async function getYtdlpOptions() {
+    const ffmpegPath = await getBinaryPath('ffmpeg')
     return {
-        ...(ffmpegPath ? { ffmpegLocation: ffmpegPath } : {}),
+        ffmpegLocation: ffmpegPath,
         ...(fs.existsSync(cookiePath) ? { cookies: cookiePath } : {})
     }
 }
@@ -67,7 +68,7 @@ async function getDirectMedia(url) {
 
 async function downloadWithYtdlp(url, output) {
     await ytdlp.download(url, {
-        ...getYtdlpOptions(),
+        ...(await getYtdlpOptions()),
         format: 'bestvideo+bestaudio/best',
         output,
         mergeOutputFormat: 'mp4'

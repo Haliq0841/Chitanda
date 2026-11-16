@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import net from 'net';
 import { fileURLToPath } from 'url';
-import ffmpegPath from 'ffmpeg-static';
+import { getBinaryPath } from '../../Binary/init.js';
 import { type } from 'os';
 
 const ytdlp = new YtDlp();
@@ -50,8 +50,9 @@ function isProxyAvailable() {
 }
 
 async function getYtdlpOptions() {
+    const ffmpegPath = await getBinaryPath('ffmpeg');
     const options = {
-        ...(ffmpegPath ? { ffmpegLocation: ffmpegPath } : {})
+        ffmpegLocation: ffmpegPath
     };
 
     if (await isProxyAvailable()) {
@@ -61,8 +62,8 @@ async function getYtdlpOptions() {
     return options;
 }
 
-function compressAudioBuffer(inputBuffer) {
-    if (!ffmpegPath) throw new Error('FFmpeg tidak tersedia untuk kompresi audio.');
+async function compressAudioBuffer(inputBuffer) {
+    const ffmpegPath = await getBinaryPath('ffmpeg');
 
     return new Promise((resolve, reject) => {
         const chunks = [];

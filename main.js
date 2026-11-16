@@ -577,7 +577,7 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     }
   })
 
-  sock.on('message', async (event) => {
+  const handleIncomingMessage = async (event) => {
     const message = await msg(sock, event, db)
     if (!message) return
     await schema(message, sock, db)
@@ -602,7 +602,17 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     message.isDev = developerOwners.some((jid) => senderIdentities.includes(jid))
       || sessionConfig.role === 'dev' && isSessionOwner
     await handler.execute(message, sock, db, func, color, console, { type: 'notify', messages: [event] })
+
     await db.write()
+  }
+
+  sock.on('message', handleIncomingMessage)
+  sock.on('message_unavailable', (event) => {
+    if (event.kind === 'view_once') {
+      void handleIncomingMessage(event).catch((error) => {
+        console.error('[ERROR] Failed to handle unavailable view-once message:', error)
+      })
+    }
   })
 
   if (sessionConfig.auth === 'pairing') {

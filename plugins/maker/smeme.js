@@ -1,11 +1,11 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import ffmpegPath from 'ffmpeg-static';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import { imageToWebp, videoToWebp } from '../../lib/exif.js'
+import { getBinaryPath } from '../../Binary/init.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -142,7 +142,8 @@ async function renderVideoMeme(media, topText = '', bottomText = '') {
     }
 
     try {
-        await execFileAsync(ffmpegPath || 'ffmpeg', [
+        const ffmpegPath = await getBinaryPath('ffmpeg')
+        await execFileAsync(ffmpegPath, [
             '-y', '-i', input,
             ...(filters.length ? ['-vf', filters.join(',')] : []),
             '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', output,

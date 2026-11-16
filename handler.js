@@ -167,11 +167,37 @@ export default class CommandHandler {
         bodyText = m.message.conversation.trim()
       }
 
-      if (!m || !bodyText) return false
+      if (!m) return false
       const executionKey = `${m.session || 'default'}:${m.id}`
-      if (this.executedCommands.has(executionKey)) return false
-      m.body = bodyText
-      this.executedCommands.add(executionKey)
+      if (bodyText) {
+        if (this.executedCommands.has(executionKey)) return false
+        m.body = bodyText
+        this.executedCommands.add(executionKey)
+      }
+
+      const activePlugins = [...this.plugins.entries()]
+        .filter(([, plugin]) => plugin && !plugin.disabled)
+      const skippedPlugins = new Set()
+      for (const [pluginName, plugin] of activePlugins) {
+        if (typeof plugin.before !== 'function') continue
+
+        try {
+          const shouldSkip = await plugin.before.call(sock, m, {
+            conn: sock,
+            db,
+            func,
+            color,
+            util,
+            chatUpdate: messages,
+            rawMessage: m.rawMessage ?? m.raw?.message ?? m.message,
+            __dirname,
+          })
+          if (shouldSkip) skippedPlugins.add(pluginName)
+        } catch (error) {
+          console.error(`[ERROR] Error in plugin 'before' method (${pluginName}):`, error)
+        }
+      }
+      if (!bodyText) return false
 
       const timestamp = new Date().toLocaleString('id-ID', {
         day: '2-digit',
@@ -221,9 +247,6 @@ export default class CommandHandler {
         await sock.readMessages?.([m.key])
       }
 
-      const activePlugins = [...this.plugins.entries()]
-        .filter(([, plugin]) => plugin && !plugin.disabled)
-
       const executedPlugins = []
       for (const [pluginName, plugin] of activePlugins) {
         if (typeof plugin.all !== 'function') continue
@@ -232,26 +255,6 @@ export default class CommandHandler {
           await plugin.all.call(sock, m, { conn: sock, chatUpdate: messages, db, func, color, util })
         } catch (error) {
           console.error(`[ERROR] Error in plugin 'all' method (${pluginName}):`, error)
-        }
-      }
-
-      const skippedPlugins = new Set()
-      for (const [pluginName, plugin] of activePlugins) {
-        if (typeof plugin.before !== 'function') continue
-
-        try {
-          const shouldSkip = await plugin.before.call(sock, m, {
-            conn: sock,
-            db,
-            func,
-            color,
-            util,
-            chatUpdate: messages,
-            __dirname,
-          })
-          if (shouldSkip) skippedPlugins.add(pluginName)
-        } catch (error) {
-          console.error(`[ERROR] Error in plugin 'before' method (${pluginName}):`, error)
         }
       }
 

@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import ffmpegPath from 'ffmpeg-static';
+import { getBinaryPath } from '../../../Binary/init.js';
 import * as waifu2x from '../../../lib/waifu2x.js';
 
 const execFileAsync = promisify(execFile);
@@ -23,7 +23,7 @@ function getMediaInfo(message) {
     };
 }
 
-function getOptions(args = []) {
+function getOptions(args = [], ffmpegPath = null) {
     const scale = Number(args.find(value => /^(2|4)$/.test(value)) || 2);
     const noise = Number(args.find(value => /^-?[0-3]$/.test(value)) || 1);
     return {
@@ -71,7 +71,7 @@ function getDurationSeconds(source = {}) {
     return null;
 }
 
-async function getVideoDurationFromFile(filePath) {
+async function getVideoDurationFromFile(filePath, ffmpegPath) {
     try {
         const { stderr } = await execFileAsync(ffmpegPath, ['-i', filePath, '-f', 'null', '-'], {
             windowsHide: true,
@@ -189,14 +189,15 @@ const handler = async (m, { conn, args, usedPrefix, command, db }) => {
     if (!/^image\/(jpe?g|png|webp)|^video\/(mp4|quicktime|webm|x-matroska)$/.test(mime)) {
         throw `Format ${mime} tidak didukung. Gunakan JPG, PNG, WEBP, MP4, MOV, WEBM, atau MKV.`;
     }
-    if (!ffmpegPath && mime.startsWith('video/')) {
-        throw 'FFmpeg tidak tersedia untuk memproses video.';
-    }
-
-    const options = getOptions(args);
     const mediaLabel = mime.startsWith('video/') ? 'video' : 'gambar';
     const queueType = mime.startsWith('video/') ? 'video' : 'image';
     const status = await m.reply('Memeriksa antrean HD...');
+    let ffmpegPath = null;
+    if (mime.startsWith('video/')) {
+        await status.edit('Menyiapkan FFmpeg untuk memproses video...');
+        ffmpegPath = await getBinaryPath('ffmpeg');
+    }
+    const options = getOptions(args, ffmpegPath);
     let releaseStart;
     const startGate = new Promise(resolve => { releaseStart = resolve; });
     const queued = enqueueHdJob(queueType, async () => {
@@ -220,7 +221,7 @@ const handler = async (m, { conn, args, usedPrefix, command, db }) => {
             mediaBuffer = null;
 
             if (mime.startsWith('video/')) {
-                const sourceDuration = getDurationSeconds(quoted) ?? await getVideoDurationFromFile(inputPath);
+                const sourceDuration = getDurationSeconds(quoted) ?? await getVideoDurationFromFile(inputPath, options.ffmpegPath);
                 const durationLimit = Number.isFinite(Number(sourceDuration)) && Number(sourceDuration) > 0
                     ? Math.max(1, Math.ceil(Number(sourceDuration)))
                     : 1;

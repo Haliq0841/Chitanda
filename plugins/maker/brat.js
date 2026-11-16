@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
-import ffmpegPath from 'ffmpeg-static'
+import { getBinaryPath } from '../../Binary/init.js'
 import { Canvas, GlobalFonts, createCanvas } from "@napi-rs/canvas";
 import { imageToWebp, videoToWebp } from '../../lib/exif.js'
 
@@ -259,7 +259,7 @@ async function makeBratVideo(text, {
   fileList += `duration 2\n`;
   fs.writeFileSync(fileListPath, fileList);
   try {
-    const executable = ffmpegPath || 'ffmpeg'
+    const executable = await getBinaryPath('ffmpeg')
     execFileSync(executable, [
       '-y',
       '-f', 'concat',
