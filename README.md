@@ -210,6 +210,17 @@ node migrate-legacy.js            # Jalankan migrasi
 node migrate-legacy.js --dry-run  # Simulasi tanpa menulis
 ```
 
+### Penyimpanan WhatsApp Zapo
+
+Data Zapo dipisah agar riwayat pesan tidak memenuhi database kredensial:
+
+- `.auth/state.sqlite` menyimpan kredensial dan state autentikasi/sinkronisasi penting. Data ini tidak dihapus oleh pembersihan riwayat.
+- `.session-data/state.sqlite` menyimpan kontak dan privacy token, terpisah dari kredensial.
+- `.message-history/history.sqlite` menyimpan pesan dan daftar chat. Riwayat sesi aktif dibersihkan setiap pukul 00.00 waktu lokal; sesi lain tetap terpisah di database yang sama.
+
+Direktori tersebut diabaikan Git. `db.sqlite` untuk data bot (user, grup, dan pengaturan) tidak ikut dibersihkan.
+Saat bot mulai, jika `.auth/state.sqlite` hilang atau kredensial sesi yang pernah dipasangkan terhapus, metadata sesi terkait di `db.sqlite` dan data Zapo untuk sesi itu juga dihapus. Data user/grup tetap dipertahankan.
+
 ---
 
 ## Membuat Plugin Baru

@@ -49,6 +49,7 @@ const defaultData = {
     self: Boolean(setting.self),
     selfOwner: setting.selfOwner || setting.owner?.[0] || null,
     sessions: {},
+    authStoreInitialized: false,
   },
   contacts: {},
   groupMetadata: {},
@@ -60,34 +61,113 @@ const handler = new CommandHandler()
 const legacySessionDir = path.join(process.cwd(), 'session')
 const authStoreDir = path.join(process.cwd(), '.auth')
 const authStoreFile = path.join(authStoreDir, 'state.sqlite')
+const sessionDataDir = path.join(process.cwd(), '.session-data')
+const sessionDataStoreFile = path.join(sessionDataDir, 'state.sqlite')
+const messageHistoryDir = path.join(process.cwd(), '.message-history')
+const messageHistoryStoreFile = path.join(messageHistoryDir, 'history.sqlite')
 const legacyAuthStoreFile = path.join(legacySessionDir, 'zapo.sqlite')
+const authStorePreviouslyInitialized = db.data.setting.authStoreInitialized === true
 
-if (fs.existsSync(legacyAuthStoreFile) && !fs.existsSync(authStoreFile)) {
+if (fs.existsSync(legacyAuthStoreFile) && !fs.existsSync(authStoreFile) && !authStorePreviouslyInitialized) {
   fs.mkdirSync(authStoreDir, { recursive: true })
   fs.copyFileSync(legacyAuthStoreFile, authStoreFile)
   console.log(color.cyan('[+] Migrated legacy auth store to .auth/state.sqlite'))
 }
 
+const authStoreWasDeleted = authStorePreviouslyInitialized && !fs.existsSync(authStoreFile)
+const authSessionIdsToClear = authStoreWasDeleted
+  ? Object.keys(db.data.setting.sessions || {})
+  : []
+
 fs.mkdirSync(authStoreDir, { recursive: true })
+fs.mkdirSync(sessionDataDir, { recursive: true })
+fs.mkdirSync(messageHistoryDir, { recursive: true })
 const persistentZapoStore = createZapoSqliteStore({ path: authStoreFile })
+const sessionDataZapoStore = createZapoSqliteStore({ path: sessionDataStoreFile })
+const messageHistoryZapoStore = createZapoSqliteStore({ path: messageHistoryStoreFile })
 const store = createStore({
-  backends: { sqlite: persistentZapoStore },
+  backends: {
+    auth: persistentZapoStore,
+    sessionData: sessionDataZapoStore,
+    messageHistory: messageHistoryZapoStore,
+  },
   providers: {
-    auth: 'sqlite',
-    signal: 'sqlite',
-    preKey: 'sqlite',
-    session: 'sqlite',
-    identity: 'sqlite',
-    senderKey: 'sqlite',
-    appState: 'sqlite',
-    privacyToken: 'sqlite',
-    messages: 'none',
-    threads: 'none',
-    contacts: 'sqlite',
+    auth: 'auth',
+    signal: 'auth',
+    preKey: 'auth',
+    session: 'auth',
+    identity: 'auth',
+    senderKey: 'auth',
+    appState: 'auth',
+    privacyToken: 'sessionData',
+    messages: 'messageHistory',
+    threads: 'messageHistory',
+    contacts: 'sessionData',
   },
 })
 let debounceTimer
 let dbWriteTimer
+const messageHistoryCleanupTimers = new Map()
+
+const clearMessageHistory = async (activeSessionId) => {
+  const sessionStore = store.session(activeSessionId)
+  await Promise.all([
+    sessionStore.messages.clear(),
+    sessionStore.threads.clear(),
+  ])
+}
+
+const clearZapoSessionData = async (activeSessionId) => {
+  const sessionStore = store.session(activeSessionId)
+  await sessionStore.auth.clear()
+  await sessionStore.signal.clear()
+  await sessionStore.preKey.clear()
+  await sessionStore.session.clear()
+  await sessionStore.identity.clear()
+  await sessionStore.senderKey.clear()
+  await sessionStore.appState.clear()
+  await sessionStore.privacyToken.clear()
+  await sessionStore.contacts.clear()
+  await sessionStore.messages.clear()
+  await sessionStore.threads.clear()
+  await sessionStore.destroyCaches()
+}
+
+if (authStoreWasDeleted) {
+  for (const activeSessionId of authSessionIdsToClear) {
+    await clearZapoSessionData(activeSessionId)
+  }
+  db.data.setting.sessions = {}
+  db.data.setting.number = null
+  await db.write()
+  console.log(color.yellow('[INFO] Auth storage is missing; removed saved session metadata and state.'))
+}
+
+const scheduleNextMessageHistoryCleanup = (activeSessionId) => {
+  const now = new Date()
+  const nextMidnight = new Date(now)
+  nextMidnight.setHours(24, 0, 0, 0)
+
+  const timer = setTimeout(async () => {
+    try {
+      await clearMessageHistory(activeSessionId)
+      console.log(color.cyan(`[INFO] Daily message history cleared for session "${activeSessionId}".`))
+    } catch (error) {
+      console.error(`[ERROR] Could not clear message history for session "${activeSessionId}":`, error)
+    } finally {
+      scheduleNextMessageHistoryCleanup(activeSessionId)
+    }
+  }, nextMidnight.getTime() - now.getTime())
+
+  timer.unref()
+  messageHistoryCleanupTimers.set(activeSessionId, timer)
+}
+
+const scheduleDailyMessageHistoryCleanup = (activeSessionId) => {
+  if (messageHistoryCleanupTimers.has(activeSessionId)) return
+
+  scheduleNextMessageHistoryCleanup(activeSessionId)
+}
 
 const scheduleDatabaseWrite = () => {
   clearTimeout(dbWriteTimer)
@@ -127,6 +207,7 @@ const normalizeSession = (name, value = {}) => {
     self: legacySelf,
     selfOwner: value.selfOwner || '',
     mobile: value.mobile && typeof value.mobile === 'object' ? value.mobile : {},
+    hasAuth: value.hasAuth === true,
   }
 }
 
@@ -169,6 +250,35 @@ db.data.setting.sessions ??= {}
 for (const [name, value] of Object.entries(db.data.setting.sessions)) {
   db.data.setting.sessions[name] = normalizeSession(name, value)
 }
+
+let sessionMetadataChanged = false
+for (const [name, sessionConfig] of Object.entries(db.data.setting.sessions)) {
+  const credentials = await store.session(name).auth.load()
+  if (credentials?.meJid) {
+    if (!sessionConfig.hasAuth) {
+      sessionConfig.hasAuth = true
+      sessionMetadataChanged = true
+    }
+    continue
+  }
+
+  if (sessionConfig.hasAuth) {
+    await clearZapoSessionData(name)
+    delete db.data.setting.sessions[name]
+    if (db.data.setting.number === sessionConfig.number) {
+      db.data.setting.number = null
+    }
+    sessionMetadataChanged = true
+    console.log(color.yellow(`[INFO] Auth credentials are missing; removed saved data for session "${name}".`))
+  }
+}
+
+if (db.data.setting.authStoreInitialized !== true) {
+  db.data.setting.authStoreInitialized = true
+  sessionMetadataChanged = true
+}
+if (sessionMetadataChanged) await db.write()
+
 if (!Object.keys(db.data.setting.sessions).length && (db.data.setting.number || setting.self || requestedPhone)) {
   db.data.setting.sessions.default = normalizeSession('default', {
     number: db.data.setting.number || requestedPhone,
@@ -358,15 +468,14 @@ const isCorruptedSignalSessionError = (error) => {
   return /invalid wire type|decodeSignalSessionRecord|Signal session|session record/i.test(text)
 }
 
-const isDefinitivelyInvalidSession = (reason, errorCode) => {
+const isDefinitivelyInvalidSession = (reason, errorCode, isLogout) => {
   const reasonText = String(reason ?? '').toLowerCase()
   return (
+    isLogout === true ||
     errorCode === 401 ||
-    errorCode === 405 ||
     reasonText.includes('invalid') ||
     reasonText.includes('not-authorized') ||
     reasonText.includes('not authorized') ||
-    reasonText.includes('session') ||
     reasonText.includes('logout') ||
     reasonText.includes('logged out')
   )
@@ -401,10 +510,13 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
   const sock = Client(db, {
     store,
     sessionId: activeSessionId,
+    version,
+    recoverFromClientTooOld: true,
     logger: new ConsoleLogger(String(setting.logLevel || 'error').toLowerCase() || 'error'),
     mediaTimeoutMs: Number(setting.mediaTimeoutMs) > 0 ? Number(setting.mediaTimeoutMs) : 120000,
     markOnlineOnConnect: !sessionConfig.type === 'self',
   })
+  scheduleDailyMessageHistoryCleanup(activeSessionId)
   let connectionOpen = false
   sock.isConnected = () => connectionOpen
   
@@ -517,18 +629,21 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
         console.log(color.yellow('[+] QR auth started, but the payload was empty. Please retry pairing.'))
         return
       }
-      console.log(await QRCode.toString(qrValue, { type: 'terminal' }))
+      console.log(await QRCode.toString(qrValue, { type: 'terminal', small: true }))
     }
   })
 
   sock.on('auth_paired', ({ credentials }) => {
     sock.user = { id: credentials?.meJid ?? null, name: credentials?.meName ?? '' }
     const pairedNumber = String(credentials?.meJid || '').split('@')[0].replace(/[^0-9]/g, '')
+    if (credentials?.meJid) sessionConfig.hasAuth = true
     if (pairedNumber) {
       sessionConfig.number = pairedNumber
       if (sessionConfig.self && !sessionConfig.selfOwner) {
         sessionConfig.selfOwner = normalizeJid(credentials?.meJid || pairedNumber)
       }
+    }
+    if (credentials?.meJid) {
       saveSession(activeSessionId, sessionConfig).catch((error) => {
         console.error(`[ERROR] Could not save session "${activeSessionId}" metadata:`, error)
       })
@@ -536,17 +651,22 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
     console.log(color.green('[+] Auth paired successfully'))
   })
 
-  sock.on('connection', async ({ status, reason }) => {
+  sock.on('connection', async ({ status, reason, code, isLogout }) => {
     connectionOpen = status === 'open'
-    console.log(color.yellow(`[+] Connection Status: ${status}`))
+    const errorCode = typeof code === 'number' ? code : new Boom(reason ?? {}).output.statusCode
+    const closeDetails = status === 'close'
+      ? ` (reason: ${reason ?? 'unknown'}, code: ${code ?? 'n/a'}, logout: ${isLogout === true})`
+      : ''
+    console.log(color.yellow(`[+] Connection Status: ${status}${closeDetails}`))
 
     if (status === 'close') {
-      const errorCode = new Boom(reason ?? {})?.output?.statusCode
-
-      if (isDefinitivelyInvalidSession(reason, errorCode)) {
-        console.log(color.cyan('[+] Invalid session detected; removing stored auth and forcing re-pairing...'))
-        resetSessionStorage()
-        process.send?.('reset')
+      if (isDefinitivelyInvalidSession(reason, errorCode, isLogout)) {
+        console.log(color.cyan('[+] WhatsApp logged this session out; reconnecting to start a fresh pairing...'))
+        setTimeout(() => {
+          connectWA(activeSessionId, sessionConfig, onPairingCode).catch((error) => {
+            console.error('[ERROR] Re-pair startup failed:', error)
+          })
+        }, 1000)
         return
       }
 
@@ -561,6 +681,9 @@ async function connectWA(activeSessionId, sessionConfig, onPairingCode = null) {
           } catch (error) {
             console.error('[ERROR] Reconnect failed:', error)
           }
+          break
+        case 405:
+          console.log(color.red('[+] WhatsApp rejected the client version. Zapo is refreshing it and retrying...'))
           break
         case 403:
           console.log(color.red('[+] WhatsApp account may be banned or blocked. Session was kept.'))

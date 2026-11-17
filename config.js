@@ -1,7 +1,7 @@
 let setting = {
     owner: ['6285849227863@s.whatsapp.net', '159820044828885@lid'],
     noPrefix: false,
-    usePairingCode: true,
+    usePairingCode: false,
     self: false,
     selfOwner: '6285849227863@s.whatsapp.net',
     mediaTimeoutMs: 15 * 60 * 1000,
