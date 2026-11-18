@@ -21,7 +21,7 @@ function getOptions(args = [], ffmpegPath = null) {
     const scaleArg = args.find(value => /^(2|3|4)$/.test(value));
     const invalidScale = args.find(value => /^\d+$/.test(value) && !/^(2|3|4)$/.test(value));
     if (invalidScale) throw 'Skala Real-ESRGAN yang tersedia hanya 2, 3, atau 4.';
-    const scale = Number(scaleArg || 4);
+    const scale = Number(scaleArg || 2);
     const anime = args.some(value => /^anime$/i.test(value));
     if (anime && scale !== 4) throw 'Model anime Real-ESRGAN hanya mendukung skala 4x.';
     return {
