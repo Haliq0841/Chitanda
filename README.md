@@ -68,10 +68,10 @@ nano config.js
 
 # 6. (Opsional) Unduh model waifu2x native untuk plugin hd.js
 npm run waifu2x:install-model
+
+# 7. (Opsional) Unduh binary dan model Real-ESRGAN untuk plugin realesrgan
+npm run realesrgan:install-model
 ```
-
-Fitur `hd` tetap dapat digunakan tanpa model native dan akan memakai pemrosesan lokal berbasis `sharp`. Model native hanya perlu diunduh jika ingin memakai binary waifu2x penuh.
-
 ---
 
 ## Konfigurasi Dasar

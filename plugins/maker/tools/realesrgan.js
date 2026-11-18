@@ -4,16 +4,10 @@ import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getBinaryPath } from '../../../Binary/init.js';
-import * as waifu2x from '../../../lib/waifu2x.js';
+import * as realesrgan from '../../../lib/realesrgan.js';
 
 const execFileAsync = promisify(execFile);
-
 const tempDir = path.join(process.cwd(), 'temp');
-function prepareWaifu2xBinaries() {
-    if (process.platform !== 'win32') {
-        waifu2x.chmod777?.();
-    }
-}
 
 function getMediaInfo(message) {
     const source = message?.msg || message || {};
@@ -24,14 +18,17 @@ function getMediaInfo(message) {
 }
 
 function getOptions(args = [], ffmpegPath = null) {
-    const scale = Number(args.find(value => /^(2|4)$/.test(value)) || 2);
-    const noise = Number(args.find(value => /^-?[0-3]$/.test(value)) || 1);
+    const scaleArg = args.find(value => /^(2|3|4)$/.test(value));
+    const invalidScale = args.find(value => /^\d+$/.test(value) && !/^(2|3|4)$/.test(value));
+    if (invalidScale) throw 'Skala Real-ESRGAN yang tersedia hanya 2, 3, atau 4.';
+    const scale = Number(scaleArg || 4);
+    const anime = args.some(value => /^anime$/i.test(value));
+    if (anime && scale !== 4) throw 'Model anime Real-ESRGAN hanya mendukung skala 4x.';
     return {
         scale,
-        noise,
-        mode: noise === -1 ? 'scale' : 'noise-scale',
+        anime,
+        tileSize: 0,
         threads: 1,
-        parallelFrames: 1,
         ...(ffmpegPath ? { ffmpegPath } : {})
     };
 }
@@ -45,7 +42,7 @@ function getImageExtension(mime) {
 async function downloadMedia(message, conn) {
     return await message.download?.()
         || await conn.downloadMediaMessage?.(message)
-        || await conn.downloadMediaMessage?.(message, 'hd');
+        || await conn.downloadMediaMessage?.(message, 'realesrgan');
 }
 
 function getDurationSeconds(source = {}) {
@@ -100,32 +97,28 @@ function createProgressReporter(status, label) {
             : Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
         if (percent === null) return;
 
-        const step = Math.min(5, Math.floor(Math.max(0, percent) / 5));
+        const step = Math.min(20, Math.floor(Math.max(0, percent) / 5));
         if (step <= lastStep) return;
         lastStep = step;
-        const completed = step;
-        const bar = `${'#'.repeat(completed)}${'-'.repeat(20 - completed)}`;
+        const bar = `${'#'.repeat(step)}${'-'.repeat(20 - step)}`;
         editQueue = editQueue
             .then(() => status.edit(`${label}\n\`\`\`\nprogress [${bar}] ${step * 5}%\n\`\`\``))
             .catch(() => {});
     };
 
-    return {
-        report,
-        flush: () => editQueue
-    };
+    return { report, flush: () => editQueue };
 }
 
-const hdQueues = {
+const queues = {
     image: { jobs: [], running: false },
     video: { jobs: [], running: false }
 };
-let hdResourceTail = Promise.resolve();
+let resourceTail = Promise.resolve();
 
-async function runWithHdResource(task) {
-    const previous = hdResourceTail;
+async function runWithResource(task) {
+    const previous = resourceTail;
     let release;
-    hdResourceTail = new Promise(resolve => { release = resolve; });
+    resourceTail = new Promise(resolve => { release = resolve; });
     await previous;
     try {
         return await task();
@@ -134,31 +127,30 @@ async function runWithHdResource(task) {
     }
 }
 
-function updateHdQueueMessages(queue) {
+function updateQueueMessages(queue) {
     queue.jobs.forEach((job, index) => {
         if (!job.status) return;
-        job.status.edit(`Menunggu antrean HD (tersisa ${index + 1} di depan).\nTunggu ya, proses akan dimulai segera setelah antrean selesai.`).catch(() => {});
+        job.status.edit(`Menunggu antrean Real-ESRGAN (tersisa ${index + 1} di depan).\nTunggu ya, proses akan dimulai segera setelah antrean selesai.`).catch(() => {});
     });
 }
 
-function processHdQueue(queue) {
+function processQueue(queue) {
     if (queue.running || !queue.jobs.length) return;
-
     const job = queue.jobs.shift();
     queue.running = true;
-    updateHdQueueMessages(queue);
+    updateQueueMessages(queue);
 
     Promise.resolve()
         .then(job.task)
         .then(job.resolve, job.reject)
         .finally(() => {
             queue.running = false;
-            processHdQueue(queue);
+            processQueue(queue);
         });
 }
 
-function enqueueHdJob(type, task) {
-    const queue = hdQueues[type];
+function enqueueJob(type, task) {
+    const queue = queues[type];
     let resolveJob;
     let rejectJob;
     const run = new Promise((resolve, reject) => {
@@ -168,13 +160,13 @@ function enqueueHdJob(type, task) {
     const position = (queue.running ? 1 : 0) + queue.jobs.length + 1;
     const job = { task, resolve: resolveJob, reject: rejectJob, status: null };
     queue.jobs.push(job);
-    processHdQueue(queue);
+    processQueue(queue);
     return {
         position,
         run,
         setStatus(status) {
             job.status = status;
-            updateHdQueueMessages(queue);
+            updateQueueMessages(queue);
         }
     };
 }
@@ -184,34 +176,33 @@ const handler = async (m, { conn, args, usedPrefix, command, db }) => {
     const { mime, fileName } = getMediaInfo(quoted);
 
     if (!mime) {
-        throw `Kirim atau reply gambar/video dengan perintah ${usedPrefix + command} [2|4] [noise].`;
+        throw `Kirim atau reply gambar/video dengan perintah ${usedPrefix + command} [2|3|4] [anime].`;
     }
     if (!/^image\/(jpe?g|png|webp)|^video\/(mp4|quicktime|webm|x-matroska)$/.test(mime)) {
         throw `Format ${mime} tidak didukung. Gunakan JPG, PNG, WEBP, MP4, MOV, WEBM, atau MKV.`;
     }
+
+    const options = getOptions(args);
     const mediaLabel = mime.startsWith('video/') ? 'video' : 'gambar';
     const queueType = mime.startsWith('video/') ? 'video' : 'image';
-    const status = await m.reply('Memeriksa antrean HD...');
+    const status = await m.reply('Memeriksa antrean Real-ESRGAN...');
     let ffmpegPath = null;
     if (mime.startsWith('video/')) {
-        await status.edit('Menyiapkan FFmpeg untuk memproses video...');
         ffmpegPath = await getBinaryPath('ffmpeg');
     }
-    const options = getOptions(args, ffmpegPath);
+    Object.assign(options, getOptions(args, ffmpegPath));
+
     let releaseStart;
     const startGate = new Promise(resolve => { releaseStart = resolve; });
-    const queued = enqueueHdJob(queueType, async () => {
+    const queued = enqueueJob(queueType, async () => {
         await startGate;
-        if (queued.position > 1) {
-            await status.edit('Giliran antrean HD dimulai...');
-        }
+        if (queued.position > 1) await status.edit('Giliran antrean Real-ESRGAN dimulai...');
         const progress = createProgressReporter(status, `Memproses ${mediaLabel} (${options.scale}x)...`);
-        const inputPath = path.join(tempDir, `hd-${crypto.randomUUID()}${mime.startsWith('video/') ? '.mp4' : getImageExtension(mime)}`);
-        const outputPath = path.join(tempDir, `hd-${crypto.randomUUID()}${mime.startsWith('video/') ? '.mp4' : '.png'}`);
+        const isVideo = mime.startsWith('video/');
+        const inputPath = path.join(tempDir, `realesrgan-${crypto.randomUUID()}${isVideo ? '.mp4' : getImageExtension(mime)}`);
+        const outputPath = path.join(tempDir, `realesrgan-${crypto.randomUUID()}${isVideo ? '.mp4' : '.png'}`);
         let generatedOutputPath = outputPath;
-        let engineUsed = mime.startsWith('video/')
-            ? 'waifu2x (video)'
-            : process.platform === 'win32' ? 'waifu2x converter' : 'waifu2x NCNN (GPU auto)';
+        let engineUsed = `Real-ESRGAN ncnn-Vulkan (${options.anime ? 'realesrgan-x4plus-anime' : options.scale === 4 ? 'realesrgan-x4plus' : 'realesr-animevideov3'})`;
 
         try {
             let mediaBuffer = await downloadMedia(quoted, conn);
@@ -220,12 +211,11 @@ const handler = async (m, { conn, args, usedPrefix, command, db }) => {
             await fs.promises.writeFile(inputPath, mediaBuffer);
             mediaBuffer = null;
 
-            if (mime.startsWith('video/')) {
+            if (isVideo) {
                 const sourceDuration = getDurationSeconds(quoted) ?? await getVideoDurationFromFile(inputPath, options.ffmpegPath);
-                const durationLimit = Number.isFinite(Number(sourceDuration)) && Number(sourceDuration) > 0
+                m.limit = Number.isFinite(Number(sourceDuration)) && Number(sourceDuration) > 0
                     ? Math.max(1, Math.ceil(Number(sourceDuration)))
                     : 1;
-                m.limit = durationLimit;
             } else {
                 m.limit = 1;
             }
@@ -235,36 +225,25 @@ const handler = async (m, { conn, args, usedPrefix, command, db }) => {
                 throw `Limit kamu tidak cukup untuk video ini. Butuh ${Number(m.limit)} limit, sisa ${currentUserLimit}.`;
             }
 
-            const engineLabel = mime.startsWith('video/')
-                ? 'waifu2x converter (video)'
-                : process.platform === 'win32' ? 'waifu2x converter' : 'waifu2x NCNN (GPU auto)';
-            engineUsed = engineLabel;
             const reportEngine = engine => {
                 engineUsed = engine;
                 return status.edit(`Memproses ${mediaLabel} (${options.scale}x)...\nEngine: ${engine}`).catch(() => {});
             };
-            await status.edit(`Menunggu slot resource HD...\nEngine: ${engineLabel}`);
-            await runWithHdResource(async () => {
-                prepareWaifu2xBinaries();
-                if (mime.startsWith('video/')) {
-                    generatedOutputPath = await waifu2x.upscaleVideo(inputPath, outputPath, {
+            await status.edit(`Menunggu slot resource Real-ESRGAN...\nEngine: ${engineUsed}`);
+            await runWithResource(async () => {
+                realesrgan.chmod777();
+                generatedOutputPath = isVideo
+                    ? await realesrgan.upscaleVideo(inputPath, outputPath, {
                         ...options,
-                        quality: 14,
-                        pngFrames: true,
-                        speed: 1,
+                        quality: 18,
                         onEngine: reportEngine
-                    }, progress.report);
-                    if (!generatedOutputPath || !fs.existsSync(generatedOutputPath)) {
-                        throw new Error(`Waifu2x tidak menghasilkan file output: ${generatedOutputPath || outputPath}`);
-                    }
-                } else {
-                    generatedOutputPath = await waifu2x.upscaleImage(inputPath, outputPath, {
+                    }, progress.report)
+                    : await realesrgan.upscaleImage(inputPath, outputPath, {
                         ...options,
                         onEngine: reportEngine
                     }, progress.report);
-                    if (!generatedOutputPath || !fs.existsSync(generatedOutputPath)) {
-                        throw new Error(`Waifu2x tidak menghasilkan file output: ${generatedOutputPath || outputPath}`);
-                    }
+                if (!generatedOutputPath || !fs.existsSync(generatedOutputPath)) {
+                    throw new Error(`Real-ESRGAN tidak menghasilkan file output: ${generatedOutputPath || outputPath}`);
                 }
             });
 
@@ -272,15 +251,15 @@ const handler = async (m, { conn, args, usedPrefix, command, db }) => {
             await progress.flush();
             await status.edit('Selesai diproses, sedang mengirim...');
             const outputBuffer = await fs.promises.readFile(generatedOutputPath);
-            const outputMime = mime.startsWith('video/') ? 'video/mp4' : 'image/png';
-            const extension = mime.startsWith('video/') ? 'mp4' : 'png';
-            const originalName = path.basename(fileName || `hd.${extension}`, path.extname(fileName || ''))
+            const extension = isVideo ? 'mp4' : 'png';
+            const outputMime = isVideo ? 'video/mp4' : 'image/png';
+            const originalName = path.basename(fileName || `realesrgan.${extension}`, path.extname(fileName || ''))
                 .replace(/[\\/:*?"<>|]/g, '_');
 
             await conn.sendMedia(m.chat || m.from, outputBuffer, m, {
                 mimetype: outputMime,
-                fileName: `${originalName}-hd.${extension}`,
-                caption: `HD ${options.scale}x berhasil diproses.\nEngine: ${engineUsed}`
+                fileName: `${originalName}-realesrgan.${extension}`,
+                caption: `Real-ESRGAN ${options.scale}x berhasil diproses.\nEngine: ${engineUsed}`
             });
         } catch (error) {
             await status.edit(`Gagal memproses media: ${error?.message || error}`);
@@ -297,18 +276,17 @@ const handler = async (m, { conn, args, usedPrefix, command, db }) => {
     queued.setStatus(status);
     try {
         await status.edit(queued.position > 1
-            ? `Masuk antrean HD (urutan ${queued.position - 1}).\nTunggu ya, proses akan dimulai segera setelah antrean selesai.`
+            ? `Masuk antrean Real-ESRGAN (urutan ${queued.position - 1}).\nTunggu ya, proses akan dimulai segera setelah antrean selesai.`
             : `Sedang meningkatkan kualitas ${mediaLabel} (${options.scale}x)...`);
     } finally {
         releaseStart();
     }
-
     return queued.run;
 };
 
-handler.help = ['hd [2|4] [noise]', 'hdvideo [2|4] [noise]'];
+handler.help = ['realesrgan', 'hd', 'hdvideo'];
 handler.tags = ['maker', 'tools'];
-handler.command = /^(hd|waifu2x|upscale|hdvideo|hdvid)$/i;
+handler.command = /^(realesrgan|real-esrgan|esrgan|hd|hdvid(eo)?|upscale)$/i;
 handler.limit = 1;
 
 export default handler;

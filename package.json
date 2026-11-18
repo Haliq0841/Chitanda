@@ -19,6 +19,7 @@
         "start": "node index.js",
         "start:all": "node start-all.js",
         "waifu2x:install-model": "node lib/waifu2x.js install-model",
+        "realesrgan:install-model": "node lib/realesrgan.js install-model",
         "migrate:legacy": "node migrate-legacy.js",
         "test": "echo \"No tests specified\" && exit 0"
     },
