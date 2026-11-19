@@ -380,6 +380,7 @@ export default class CommandHandler {
         }
 
         let pluginSucceeded = false
+        sock.presence.send('available');
         try {
           m.plugin = pluginName
           await plugin.call(sock, m, extra)
